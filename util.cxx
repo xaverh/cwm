@@ -18,88 +18,74 @@
  * $OpenBSD$
  */
 
-#include <sys/types.h>
-#include "queue.h"
+#include "calmwm.hxx"
+#include "queue.hxx"
 
+#include <cerrno>
+#include <climits>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <err.h>
-#include <errno.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include "calmwm.h"
+static void log_msg(const char*, va_list);
 
-static void	 log_msg(const char *, va_list);
-
-void
-u_spawn(char *argstr)
+void u_spawn(char* argstr)
 {
 	switch (fork()) {
-	case 0:
-		u_exec(argstr);
-		exit(1);
-	case -1:
-		warn("fork");
-	default:
-		break;
+	case 0: u_exec(argstr); exit(1);
+	case -1: warn("fork");
+	default: break;
 	}
 }
 
-void
-u_exec(char *argstr)
+void u_exec(char* argstr)
 {
 #define MAXARGLEN 20
-	char	*args[MAXARGLEN], **ap = args;
-	char	**end = &args[MAXARGLEN - 2], *tmp;
-	char	*s = argstr;
+	char *args[MAXARGLEN], **ap = args;
+	char **end = &args[MAXARGLEN - 2], *tmp;
+	char* s = argstr;
 
-	while (ap < end && (*ap = strsep(&argstr, " \t")) != NULL) {
-		if (**ap == '\0')
-			continue;
+	while (ap < end && (*ap = strsep(&argstr, " \t")) != nullptr) {
+		if (**ap == '\0') continue;
 		ap++;
-		if (argstr != NULL) {
+		if (argstr != nullptr) {
 			/* deal with quoted strings */
-			switch(argstr[0]) {
+			switch (argstr[0]) {
 			case '"':
 			case '\'':
-				if ((tmp = strchr(argstr + 1, argstr[0]))
-				    != NULL) {
+				if ((tmp = strchr(argstr + 1, argstr[0])) != nullptr) {
 					*(tmp++) = '\0';
 					*(ap++) = ++argstr;
 					argstr = tmp;
 				}
 				break;
-			default:
-				break;
+			default: break;
 			}
 		}
 	}
-	*ap = NULL;
+	*ap = nullptr;
 
 	(void)setsid();
 	(void)execvp(args[0], args);
 	warn("%s", s);
 }
 
-char *
-u_argv(char * const *argv)
+char* u_argv(char* const* argv)
 {
-	size_t	 siz = 0;
-	int	 i;
-	char	*p;
+	size_t siz = 0;
+	int i;
+	char* p;
 
-	if (argv == 0)
-		return NULL;
+	if (argv == 0) return nullptr;
 
-	for (i = 0; argv[i]; i++)
-		siz += strlen(argv[i]) + 1;
-	if (siz == 0)
-		return NULL;
+	for (i = 0; argv[i]; i++) siz += strlen(argv[i]) + 1;
+	if (siz == 0) return nullptr;
 
-	p = xmalloc(siz);
+	p = (char*)xmalloc(siz);
 	strlcpy(p, argv[0], siz);
 	for (i = 1; argv[i]; i++) {
 		strlcat(p, " ", siz);
@@ -108,10 +94,9 @@ u_argv(char * const *argv)
 	return p;
 }
 
-static void
-log_msg(const char *msg, va_list ap)
+static void log_msg(const char* msg, va_list ap)
 {
-	char	*fmt;
+	char* fmt;
 
 	if (asprintf(&fmt, "%s\n", msg) == -1) {
 		vfprintf(stderr, msg, ap);
@@ -123,14 +108,12 @@ log_msg(const char *msg, va_list ap)
 	fflush(stderr);
 }
 
-void
-log_debug(int level, const char *func, const char *msg, ...)
+void log_debug(int level, const char* func, const char* msg, ...)
 {
-	char	*fmt;
-	va_list	 ap;
+	char* fmt;
+	va_list ap;
 
-	if (Conf.debug < level)
-		return;
+	if (Conf.debug < level) return;
 
 	va_start(ap, msg);
 	xasprintf(&fmt, "debug%d: %s: %s", level, func, msg);
