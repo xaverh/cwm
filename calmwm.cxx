@@ -93,10 +93,6 @@ int main(int argc, char** argv)
 	xfd = x_init(display_name);
 	cwm_status = CWM_RUNNING;
 
-#ifdef __OpenBSD__
-	if (pledge("stdio rpath proc exec", nullptr) == -1) err(1, "pledge");
-#endif
-
 	memset(&pfd, 0, sizeof(pfd));
 	pfd[0].fd = xfd;
 	pfd[0].events = POLLIN;

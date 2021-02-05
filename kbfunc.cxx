@@ -588,7 +588,7 @@ void kbfunc_menu_exec(void* ctx, struct cargs* cargs)
 
 	TAILQ_INIT(&menuq);
 
-	if ((path = getenv("PATH")) == nullptr) path = _PATH_DEFPATH;
+	if ((path = getenv("PATH")) == nullptr) path = const_cast<char*>(_PATH_DEFPATH);
 	pathcpy = path = xstrdup(path);
 
 	for (ap = paths; ap < &paths[NPATHS - 1] && (*ap = strsep(&pathcpy, ":")) != nullptr;) {

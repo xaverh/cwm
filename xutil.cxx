@@ -143,7 +143,7 @@ void xu_xorcolor(XftColor a, XftColor b, XftColor* r)
 
 void xu_atom_init(void)
 {
-	char* cwmhints[] = {
+	char const* cwmhints[] = {
 	    "WM_STATE",
 	    "WM_DELETE_WINDOW",
 	    "WM_TAKE_FOCUS",
@@ -152,7 +152,7 @@ void xu_atom_init(void)
 	    "UTF8_STRING",
 	    "WM_CHANGE_STATE",
 	};
-	char* ewmhints[] = {
+	char const* ewmhints[] = {
 	    "_NET_SUPPORTED",
 	    "_NET_SUPPORTING_WM_CHECK",
 	    "_NET_ACTIVE_WINDOW",
@@ -181,8 +181,8 @@ void xu_atom_init(void)
 	    "_CWM_WM_STATE_FREEZE",
 	};
 
-	XInternAtoms(X_Dpy, cwmhints, nitems(cwmhints), False, cwmh);
-	XInternAtoms(X_Dpy, ewmhints, nitems(ewmhints), False, ewmh);
+	XInternAtoms(X_Dpy, const_cast<char**>(cwmhints), nitems(cwmhints), False, cwmh);
+	XInternAtoms(X_Dpy, const_cast<char**>(ewmhints), nitems(ewmhints), False, ewmh);
 }
 
 /* Root Window Properties */
