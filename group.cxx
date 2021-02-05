@@ -30,6 +30,7 @@
 #include <err.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <algorithm>
 
 static struct group_ctx* group_next(struct group_ctx*);
 static struct group_ctx* group_prev(struct group_ctx*);
@@ -302,7 +303,7 @@ int group_restore(struct client_ctx* cc)
 	if (!xu_ewmh_get_net_wm_desktop(cc, &grpnum)) return 0;
 
 	num = (grpnum == -1) ? 0 : grpnum;
-	num = MIN(num, (Conf.ngroups - 1));
+	num = std::min(num, (Conf.ngroups - 1));
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	{

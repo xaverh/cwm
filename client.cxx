@@ -21,6 +21,7 @@
 #include "calmwm.hxx"
 #include "queue.hxx"
 
+#include <algorithm>
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -633,20 +634,20 @@ static void client_placement(struct client_ctx* cc)
 		xu_ptr_get(sc->rootwin, &xmouse, &ymouse);
 		area = screen_area(sc, xmouse, ymouse, 1);
 
-		xmouse = MAX(MAX(xmouse, area.x) - cc->geom.w / 2, area.x);
-		ymouse = MAX(MAX(ymouse, area.y) - cc->geom.h / 2, area.y);
+		xmouse = std::max(std::max(xmouse, area.x) - cc->geom.w / 2, area.x);
+		ymouse = std::max(std::max(ymouse, area.y) - cc->geom.h / 2, area.y);
 
 		xslack = area.x + area.w - cc->geom.w - cc->bwidth * 2;
 		yslack = area.y + area.h - cc->geom.h - cc->bwidth * 2;
 
 		if (xslack >= area.x) {
-			cc->geom.x = MAX(MIN(xmouse, xslack), area.x);
+			cc->geom.x = std::max(std::min(xmouse, xslack), area.x);
 		} else {
 			cc->geom.x = area.x;
 			cc->geom.w = area.x + area.w;
 		}
 		if (yslack >= area.y) {
-			cc->geom.y = MAX(MIN(ymouse, yslack), area.y);
+			cc->geom.y = std::max(std::min(ymouse, yslack), area.y);
 		} else {
 			cc->geom.y = area.y;
 			cc->geom.h = area.y + area.h;
@@ -693,22 +694,22 @@ void client_get_sizehints(struct client_ctx* cc)
 		cc->hint.incw = size.width_inc;
 		cc->hint.inch = size.height_inc;
 	}
-	cc->hint.incw = MAX(1, cc->hint.incw);
-	cc->hint.inch = MAX(1, cc->hint.inch);
-	cc->hint.minw = MAX(1, cc->hint.minw);
-	cc->hint.minh = MAX(1, cc->hint.minh);
+	cc->hint.incw = std::max(1, cc->hint.incw);
+	cc->hint.inch = std::max(1, cc->hint.inch);
+	cc->hint.minw = std::max(1, cc->hint.minw);
+	cc->hint.minh = std::max(1, cc->hint.minh);
 
 	if (size.flags & PAspect) {
-		if (size.min_aspect.x > 0) cc->hint.mina = (float)size.min_aspect.y / size.min_aspect.x;
-		if (size.max_aspect.y > 0) cc->hint.maxa = (float)size.max_aspect.x / size.max_aspect.y;
+		if (size.min_aspect.x > 0)
+			cc->hint.mina = static_cast<float>(size.min_aspect.y) / size.min_aspect.x;
+		if (size.max_aspect.y > 0)
+			cc->hint.maxa = static_cast<float>(size.max_aspect.x) / size.max_aspect.y;
 	}
 }
 
 void client_apply_sizehints(struct client_ctx* cc)
 {
-	Bool baseismin;
-
-	baseismin = (cc->hint.basew == cc->hint.minw) && (cc->hint.baseh == cc->hint.minh);
+	auto baseismin = (cc->hint.basew == cc->hint.minw) && (cc->hint.baseh == cc->hint.minh);
 
 	/* temporarily remove base dimensions, ICCCM 4.1.2.3 */
 	if (!baseismin) {
@@ -718,9 +719,9 @@ void client_apply_sizehints(struct client_ctx* cc)
 
 	/* adjust for aspect limits */
 	if (cc->hint.mina && cc->hint.maxa) {
-		if (cc->hint.maxa < (float)cc->geom.w / cc->geom.h)
+		if (cc->hint.maxa < static_cast<float>(cc->geom.w) / cc->geom.h)
 			cc->geom.w = cc->geom.h * cc->hint.maxa;
-		else if (cc->hint.mina < (float)cc->geom.h / cc->geom.w)
+		else if (cc->hint.mina < static_cast<float>(cc->geom.h) / cc->geom.w)
 			cc->geom.h = cc->geom.w * cc->hint.mina;
 	}
 
@@ -739,12 +740,12 @@ void client_apply_sizehints(struct client_ctx* cc)
 	cc->geom.h += cc->hint.baseh;
 
 	/* adjust for min width/height */
-	cc->geom.w = MAX(cc->geom.w, cc->hint.minw);
-	cc->geom.h = MAX(cc->geom.h, cc->hint.minh);
+	cc->geom.w = std::max(cc->geom.w, cc->hint.minw);
+	cc->geom.h = std::max(cc->geom.h, cc->hint.minh);
 
 	/* adjust for max width/height */
-	if (cc->hint.maxw) cc->geom.w = MIN(cc->geom.w, cc->hint.maxw);
-	if (cc->hint.maxh) cc->geom.h = MIN(cc->geom.h, cc->hint.maxh);
+	if (cc->hint.maxw) cc->geom.w = std::min(cc->geom.w, cc->hint.maxw);
+	if (cc->hint.maxh) cc->geom.h = std::min(cc->geom.h, cc->hint.maxh);
 }
 
 static void client_mwm_hints(struct client_ctx* cc)

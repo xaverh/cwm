@@ -22,6 +22,7 @@
 #include "calmwm.hxx"
 #include "queue.hxx"
 
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <climits>
@@ -362,9 +363,9 @@ static void menu_draw(struct menu_ctx* mc, struct menu_q* menuq, struct menu_q* 
 		XftTextExtentsUtf8(X_Dpy,
 		                   sc->xftfont,
 		                   (const FcChar8*)mi->print,
-		                   MIN(strlen(mi->print), MENU_MAXENTRY),
+		                   std::min(strlen(mi->print), MENU_MAXENTRY),
 		                   &extents);
-		mc->geom.w = MAX(mc->geom.w, extents.xOff);
+		mc->geom.w = std::max(mc->geom.w, static_cast<int>(extents.xOff));
 		mc->geom.h += sc->xftfont->height + 1;
 		mc->num++;
 	}
@@ -380,12 +381,12 @@ static void menu_draw(struct menu_ctx* mc, struct menu_q* menuq, struct menu_q* 
 	if (mc->geom.x + mc->geom.w >= area.w) mc->geom.x = area.w - mc->geom.w;
 	if (mc->geom.x < area.x) {
 		mc->geom.x = area.x;
-		mc->geom.w = MIN(mc->geom.w, (area.w - area.x));
+		mc->geom.w = std::min(mc->geom.w, (area.w - area.x));
 	}
 	if (mc->geom.y + mc->geom.h >= area.h) mc->geom.y = area.h - mc->geom.h;
 	if (mc->geom.y < area.y) {
 		mc->geom.y = area.y;
-		mc->geom.h = MIN(mc->geom.h, (area.h - area.y));
+		mc->geom.h = std::min(mc->geom.h, (area.h - area.y));
 	}
 
 	if (mc->geom.x != xsave || mc->geom.y != ysave) xu_ptr_set(sc->rootwin, mc->geom.x, mc->geom.y);

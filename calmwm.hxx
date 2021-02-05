@@ -51,18 +51,13 @@ size_t strlcpy(char*, const char*, size_t);
 #include <X11/extensions/Xrandr.h>
 #include <X11/keysym.h>
 
-#undef MIN
-#undef MAX
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
-#define MAX(x, y) ((x) > (y) ? (x) : (y))
-
 #ifndef nitems
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 #endif
 
-#define BUTTONMASK (ButtonPressMask | ButtonReleaseMask)
-#define MOUSEMASK (BUTTONMASK | PointerMotionMask)
-#define IGNOREMODMASK (LockMask | Mod2Mask | 0x2000)
+static constexpr auto BUTTONMASK {ButtonPressMask | ButtonReleaseMask};
+static constexpr auto MOUSEMASK {BUTTONMASK | PointerMotionMask};
+static constexpr auto IGNOREMODMASK {LockMask | Mod2Mask | 0x2000};
 
 /* direction/amount */
 static constexpr auto CWM_UP {0x0001};
@@ -117,6 +112,28 @@ struct winname {
 TAILQ_HEAD(name_q, winname);
 TAILQ_HEAD(ignore_q, winname);
 
+static constexpr auto  CLIENT_HIDDEN {0x0001};
+static constexpr auto  CLIENT_IGNORE {0x0002};
+static constexpr auto  CLIENT_VMAXIMIZED {0x0004};
+static constexpr auto  CLIENT_HMAXIMIZED {0x0008};
+static constexpr auto  CLIENT_FREEZE {0x0010};
+static constexpr auto  CLIENT_GROUP {0x0020};
+static constexpr auto  CLIENT_UNGROUP {0x0040};
+static constexpr auto  CLIENT_INPUT {0x0080};
+static constexpr auto  CLIENT_WM_DELETE_WINDOW {0x0100};
+static constexpr auto  CLIENT_WM_TAKE_FOCUS {0x0200};
+static constexpr auto  CLIENT_URGENCY {0x0400};
+static constexpr auto  CLIENT_FULLSCREEN {0x0800};
+static constexpr auto  CLIENT_STICKY {0x1000};
+static constexpr auto  CLIENT_ACTIVE {0x2000};
+static constexpr auto  CLIENT_SKIP_PAGER {0x4000};
+static constexpr auto  CLIENT_SKIP_TASKBAR {0x8000};
+
+static constexpr auto  CLIENT_SKIP_CYCLE{CLIENT_HIDDEN | CLIENT_IGNORE | CLIENT_SKIP_TASKBAR | CLIENT_SKIP_PAGER};
+static constexpr auto  CLIENT_HIGHLIGHT {CLIENT_GROUP | CLIENT_UNGROUP};
+static constexpr auto  CLIENT_MAXFLAGS {CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED};
+static constexpr auto  CLIENT_MAXIMIZED {CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED};
+
 struct client_ctx {
 	TAILQ_ENTRY(client_ctx) entry;
 	struct screen_ctx* sc;
@@ -147,27 +164,7 @@ struct client_ctx {
 		int h; /* height */
 		int w; /* width */
 	} dim;
-#define CLIENT_HIDDEN 0x0001
-#define CLIENT_IGNORE 0x0002
-#define CLIENT_VMAXIMIZED 0x0004
-#define CLIENT_HMAXIMIZED 0x0008
-#define CLIENT_FREEZE 0x0010
-#define CLIENT_GROUP 0x0020
-#define CLIENT_UNGROUP 0x0040
-#define CLIENT_INPUT 0x0080
-#define CLIENT_WM_DELETE_WINDOW 0x0100
-#define CLIENT_WM_TAKE_FOCUS 0x0200
-#define CLIENT_URGENCY 0x0400
-#define CLIENT_FULLSCREEN 0x0800
-#define CLIENT_STICKY 0x1000
-#define CLIENT_ACTIVE 0x2000
-#define CLIENT_SKIP_PAGER 0x4000
-#define CLIENT_SKIP_TASKBAR 0x8000
 
-#define CLIENT_SKIP_CYCLE (CLIENT_HIDDEN | CLIENT_IGNORE | CLIENT_SKIP_TASKBAR | CLIENT_SKIP_PAGER)
-#define CLIENT_HIGHLIGHT (CLIENT_GROUP | CLIENT_UNGROUP)
-#define CLIENT_MAXFLAGS (CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED)
-#define CLIENT_MAXIMIZED (CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED)
 	int flags;
 	int stackingorder;
 	struct name_q nameq;
@@ -266,10 +263,11 @@ static constexpr auto CWM_MENU_LIST {0x0004};
 static constexpr auto CWM_MENU_WINDOW_ALL {0x0008};
 static constexpr auto CWM_MENU_WINDOW_HIDDEN {0x0010};
 
+static constexpr std::size_t MENU_MAXENTRY {200};
+
 struct menu {
 	TAILQ_ENTRY(menu) entry;
 	TAILQ_ENTRY(menu) resultentry;
-#define MENU_MAXENTRY 200
 	char text[MENU_MAXENTRY + 1];
 	char print[MENU_MAXENTRY + 1];
 	void* ctx;
@@ -307,30 +305,28 @@ struct Conf {
 };
 
 /* MWM hints */
+static constexpr auto MWM_HINTS_ELEMENTS{ 3};
+static constexpr auto MWM_FLAGS_FUNCTIONS {1 << 0};
+static constexpr auto MWM_FLAGS_DECORATIONS {1 << 1};
+static constexpr auto MWM_FLAGS_INPUT_MODE {1 << 2};
+static constexpr auto MWM_FLAGS_STATUS {1 << 3};
+static constexpr auto MWM_FUNCS_ALL {1 << 0};
+static constexpr auto MWM_FUNCS_RESIZE {1 << 1};
+static constexpr auto MWM_FUNCS_MOVE {1 << 2};
+static constexpr auto MWM_FUNCS_MINIMIZE {1 << 3};
+static constexpr auto MWM_FUNCS_MAXIMIZE {1 << 4};
+static constexpr auto MWM_FUNCS_CLOSE {1 << 5};
+static constexpr auto MWM_DECOR_ALL {1 << 0};
+static constexpr auto MWM_DECOR_BORDER {1 << 1};
+static constexpr auto MWM_DECOR_RESIZE_HANDLE {1 << 2};
+static constexpr auto MWM_DECOR_TITLEBAR {1 << 3};
+static constexpr auto MWM_DECOR_MENU {1 << 4};
+static constexpr auto MWM_DECOR_MINIMIZE {1 << 5};
+static constexpr auto MWM_DECOR_MAXIMIZE {1 << 6};
+
 struct mwm_hints {
-#define MWM_HINTS_ELEMENTS 3L
-#define MWM_FLAGS_STATUS (1 << 3)
-
-#define MWM_FLAGS_FUNCTIONS (1 << 0)
-#define MWM_FLAGS_DECORATIONS (1 << 1)
-#define MWM_FLAGS_INPUT_MODE (1 << 2)
 	unsigned long flags;
-
-#define MWM_FUNCS_ALL (1 << 0)
-#define MWM_FUNCS_RESIZE (1 << 1)
-#define MWM_FUNCS_MOVE (1 << 2)
-#define MWM_FUNCS_MINIMIZE (1 << 3)
-#define MWM_FUNCS_MAXIMIZE (1 << 4)
-#define MWM_FUNCS_CLOSE (1 << 5)
 	unsigned long functions;
-
-#define MWM_DECOR_ALL (1 << 0)
-#define MWM_DECOR_BORDER (1 << 1)
-#define MWM_DECOR_RESIZE_HANDLE (1 << 2)
-#define MWM_DECOR_TITLEBAR (1 << 3)
-#define MWM_DECOR_MENU (1 << 4)
-#define MWM_DECOR_MINIMIZE (1 << 5)
-#define MWM_DECOR_MAXIMIZE (1 << 6)
 	unsigned long decorations;
 };
 
@@ -383,7 +379,7 @@ extern Atom ewmh[EWMH_NITEMS];
 extern struct screen_q Screenq;
 extern struct Conf Conf;
 
-void usage(void);
+void usage();
 
 void client_apply_sizehints(struct client_ctx*);
 void client_close(struct client_ctx*);
@@ -530,7 +526,7 @@ void conf_ignore(struct Conf*, const char*);
 void conf_screen(struct screen_ctx*);
 void conf_group(struct screen_ctx*);
 
-void xev_process(void);
+void xev_process();
 
 int xu_get_prop(Window, Atom, Atom, long, unsigned char**);
 int xu_get_strprop(Window, Atom, char**);
@@ -541,7 +537,7 @@ void xu_set_wm_state(Window, long);
 void xu_send_clientmsg(Window, Atom, Time);
 void xu_xorcolor(XftColor, XftColor, XftColor*);
 
-void xu_atom_init(void);
+void xu_atom_init();
 void xu_ewmh_net_supported(struct screen_ctx*);
 void xu_ewmh_net_supported_wm_check(struct screen_ctx*);
 void xu_ewmh_net_desktop_geometry(struct screen_ctx*);
