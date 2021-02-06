@@ -204,7 +204,6 @@ Conf::Conf() noexcept
 	keybindq.tqh_last = &(keybindq).tqh_first;
 	mousebindq.tqh_last = &(mousebindq).tqh_first;
 	cmdq.tqh_last = &(cmdq).tqh_first;
-	wmq.tqh_last = &(wmq).tqh_first;
 
 	cmd_add("lock", "xlock");
 	cmd_add("term", "xterm");
@@ -229,19 +228,13 @@ Conf::~Conf()
 	Autogroup* ag;
 	Bind_ctx *kb, *mb;
 	Winname* wn;
-	Cmd_ctx *cmd, *wm;
+	Cmd_ctx *cmd;
 
 	while ((cmd = TAILQ_FIRST(&cmdq)) != nullptr) {
 		TAILQ_REMOVE(&cmdq, cmd, entry);
 		std::free(cmd->name);
 		std::free(cmd->path);
 		std::free(cmd);
-	}
-	while ((wm = TAILQ_FIRST(&wmq)) != nullptr) {
-		TAILQ_REMOVE(&wmq, wm, entry);
-		std::free(wm->name);
-		std::free(wm->path);
-		std::free(wm);
 	}
 	while ((kb = TAILQ_FIRST(&keybindq)) != nullptr) {
 		TAILQ_REMOVE(&keybindq, kb, entry);
@@ -295,13 +288,13 @@ void Conf::wm_add(char const* name, char const* path)
 	TAILQ_FOREACH_SAFE(wmtmp, &cmdq, entry, wmnxt)
 	{
 		if (strcmp(wmtmp->name, name) == 0) {
-			TAILQ_REMOVE(&wmq, wmtmp, entry);
-			free(wmtmp->name);
-			free(wmtmp->path);
-			free(wmtmp);
+			wmq.remove(wmtmp);
+			std::free(wmtmp->name);
+			std::free(wmtmp->path);
+			std::free(wmtmp);
 		}
 	}
-	TAILQ_INSERT_TAIL(&wmq, wm, entry);
+	wmq.push_back(wm);
 }
 
 void Conf::autogroup(int num, char const* name, char const* wclass)
@@ -352,7 +345,7 @@ void conf_client(Client_ctx* cc)
 	TAILQ_FOREACH(wn, &conf->ignoreq, entry)
 	{
 		if (strncasecmp(wn->name, cc->name, strlen(wn->name)) == 0) {
-			cc->flags |= CLIENT_IGNORE;
+			cc->flags |= Client_ctx::ignore;
 			break;
 		}
 	}

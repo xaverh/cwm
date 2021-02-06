@@ -120,7 +120,7 @@ void screen_updatestackingorder(Screen_ctx* sc)
 	if (XQueryTree(X_Dpy, sc->rootwin, &w0, &w1, &wins, &nwins)) {
 		for (s = 0, i = 0; i < nwins; i++) {
 			/* Skip hidden windows */
-			if ((cc = client_find(wins[i])) == nullptr || cc->flags & CLIENT_HIDDEN) continue;
+			if ((cc = client_find(wins[i])) == nullptr || cc->flags & Client_ctx::hidden) continue;
 
 			cc->stackingorder = s++;
 		}

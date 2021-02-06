@@ -114,14 +114,10 @@ static void xev_handle_maprequest(XEvent* ee)
 	Client_ctx *cc, *old_cc;
 
 	log_debug(3, __func__, "parent: 0x%lx window: 0x%lx", e->parent, e->window);
-
 	if ((sc = screen_find(e->parent)) == nullptr) return;
-
 	if ((old_cc = client_current(sc)) != nullptr) client_ptr_save(old_cc);
-
 	if ((cc = client_find(e->window)) == nullptr) cc = client_init(e->window, nullptr);
-
-	if ((cc != nullptr) && (!(cc->flags & CLIENT_IGNORE))) client_ptr_warp(cc);
+	if ((cc != nullptr) && (!(cc->flags & Client_ctx::ignore))) client_ptr_warp(cc);
 }
 
 static void xev_handle_unmapnotify(XEvent* ee)
@@ -135,7 +131,7 @@ static void xev_handle_unmapnotify(XEvent* ee)
 		if (e->send_event) {
 			xu_set_wm_state(cc->win, WithdrawnState);
 		} else {
-			if (!(cc->flags & CLIENT_HIDDEN)) client_remove(cc);
+			if (!(cc->flags & Client_ctx::hidden)) client_remove(cc);
 		}
 	}
 }
@@ -288,8 +284,8 @@ static void xev_handle_buttonrelease(XEvent* ee)
 	          e->subwindow);
 
 	if ((cc = client_find(e->window)) != nullptr) {
-		if (cc->flags & (CLIENT_ACTIVE | CLIENT_HIGHLIGHT)) {
-			cc->flags &= ~CLIENT_HIGHLIGHT;
+		if (cc->flags & (Client_ctx::active | Client_ctx::highlight)) {
+			cc->flags &= ~Client_ctx::highlight;
 			client_draw_border(cc);
 		}
 	}
@@ -370,8 +366,8 @@ static void xev_handle_keyrelease(XEvent* ee)
 					sc->cycling = 0;
 					client_mtf(cc);
 				}
-				if (cc->flags & CLIENT_HIGHLIGHT) {
-					cc->flags &= ~CLIENT_HIGHLIGHT;
+				if (cc->flags & Client_ctx::highlight) {
+					cc->flags &= ~Client_ctx::highlight;
 					client_draw_border(cc);
 				}
 			}

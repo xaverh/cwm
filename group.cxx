@@ -56,7 +56,7 @@ void group_hide(Group_ctx* gc)
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	{
 		if (cc->gc != gc) continue;
-		if (!(cc->flags & CLIENT_STICKY) && !(cc->flags & CLIENT_HIDDEN)) client_hide(cc);
+		if (!(cc->flags & Client_ctx::sticky) && !(cc->flags & Client_ctx::hidden)) client_hide(cc);
 	}
 }
 
@@ -68,7 +68,7 @@ void group_show(Group_ctx* gc)
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	{
 		if (cc->gc != gc) continue;
-		if (!(cc->flags & CLIENT_STICKY) && (cc->flags & CLIENT_HIDDEN)) client_show(cc);
+		if (!(cc->flags & Client_ctx::sticky) && (cc->flags & Client_ctx::hidden)) client_show(cc);
 	}
 	group_restack(gc);
 	group_set_active(gc);
@@ -155,10 +155,10 @@ void group_toggle_membership(Client_ctx* cc)
 
 	if (cc->gc == gc) {
 		group_assign(nullptr, cc);
-		cc->flags |= CLIENT_UNGROUP;
+		cc->flags |= Client_ctx::ungroup;
 	} else {
 		group_assign(gc, cc);
-		cc->flags |= CLIENT_GROUP;
+		cc->flags |= Client_ctx::group;
 	}
 	client_draw_border(cc);
 }
@@ -171,7 +171,7 @@ int group_holds_only_sticky(Group_ctx* gc)
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	{
 		if (cc->gc != gc) continue;
-		if (!(cc->flags & CLIENT_STICKY)) return 0;
+		if (!(cc->flags & Client_ctx::sticky)) return 0;
 	}
 	return 1;
 }
@@ -184,7 +184,7 @@ int group_holds_only_hidden(Group_ctx* gc)
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	{
 		if (cc->gc != gc) continue;
-		if (!(cc->flags & (CLIENT_HIDDEN | CLIENT_STICKY))) return 0;
+		if (!(cc->flags & (Client_ctx::hidden | Client_ctx::sticky))) return 0;
 	}
 	return 1;
 }

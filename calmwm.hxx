@@ -35,6 +35,7 @@
 #include <array>
 #include <cstdio>
 #include <filesystem>
+#include <list>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -115,28 +116,6 @@ struct Winname {
 TAILQ_HEAD(name_q, Winname);
 TAILQ_HEAD(ignore_q, Winname);
 
-static constexpr unsigned CLIENT_HIDDEN {0x0001};
-static constexpr unsigned CLIENT_IGNORE {0x0002};
-static constexpr unsigned CLIENT_VMAXIMIZED {0x0004};
-static constexpr unsigned CLIENT_HMAXIMIZED {0x0008};
-static constexpr unsigned CLIENT_FREEZE {0x0010};
-static constexpr unsigned CLIENT_GROUP {0x0020};
-static constexpr unsigned CLIENT_UNGROUP {0x0040};
-static constexpr unsigned CLIENT_INPUT {0x0080};
-static constexpr unsigned CLIENT_WM_DELETE_WINDOW {0x0100};
-static constexpr unsigned CLIENT_WM_TAKE_FOCUS {0x0200};
-static constexpr unsigned CLIENT_URGENCY {0x0400};
-static constexpr unsigned CLIENT_FULLSCREEN {0x0800};
-static constexpr unsigned CLIENT_STICKY {0x1000};
-static constexpr unsigned CLIENT_ACTIVE {0x2000};
-static constexpr unsigned CLIENT_SKIP_PAGER {0x4000};
-static constexpr unsigned CLIENT_SKIP_TASKBAR {0x8000};
-static constexpr unsigned CLIENT_SKIP_CYCLE {CLIENT_HIDDEN | CLIENT_IGNORE | CLIENT_SKIP_TASKBAR
-                                             | CLIENT_SKIP_PAGER};
-static constexpr unsigned CLIENT_HIGHLIGHT {CLIENT_GROUP | CLIENT_UNGROUP};
-static constexpr unsigned CLIENT_MAXFLAGS {CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED};
-static constexpr unsigned CLIENT_MAXIMIZED {CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED};
-
 struct Client_ctx {
 	TAILQ_ENTRY(Client_ctx) entry;
 	struct Screen_ctx* sc;
@@ -170,7 +149,7 @@ struct Client_ctx {
 
 	unsigned flags;
 	int stackingorder;
-	struct name_q nameq;
+	name_q nameq;
 	char* name;
 	std::string label;
 	char* res_class;   /* class hint */
@@ -180,7 +159,31 @@ struct Client_ctx {
 	void apply_sizehints() noexcept;
 	void close() const noexcept;
 	void config() const;
+
+	enum flag : unsigned {
+		hidden = 0x0001,
+		ignore = 0x0002,
+		vmaximized = 0x0004,
+		hmaximized = 0x0008,
+		freeze = 0x0010,
+		group = 0x0020,
+		ungroup = 0x0040,
+		input = 0x0080,
+		wm_delete_window = 0x0100,
+		wm_take_focus = 0x0200,
+		urgency = 0x0400,
+		fullscreen = 0x0800,
+		sticky = 0x1000,
+		active = 0x2000,
+		skip_pager = 0x4000,
+		skip_taskbar = 0x8000,
+		skip_cycle = hidden | ignore | skip_taskbar | skip_pager,
+		highlight = group | ungroup,
+		maxflags = vmaximized | hmaximized,
+		maximized = vmaximized | hmaximized
+	};
 };
+
 TAILQ_HEAD(client_q, Client_ctx);
 
 struct Group_ctx {
@@ -271,8 +274,6 @@ struct Cmd_ctx {
 
 TAILQ_HEAD(cmd_q, Cmd_ctx);
 
-TAILQ_HEAD(wm_q, Cmd_ctx);
-
 static constexpr unsigned CWM_MENU_DUMMY {0x0001};
 static constexpr unsigned CWM_MENU_FILE {0x0002};
 static constexpr unsigned CWM_MENU_LIST {0x0004};
@@ -305,7 +306,7 @@ struct Conf {
 	autogroup_q autogroupq {nullptr, nullptr};
 	ignore_q ignoreq {nullptr, nullptr};
 	cmd_q cmdq {nullptr, nullptr};
-	wm_q wmq {nullptr, nullptr};
+	std::list<Cmd_ctx*> wmq;
 	int ngroups {0};
 	int stickygroups {0};
 	int nameqlen {5};

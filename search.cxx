@@ -55,20 +55,19 @@ void search_match_client(struct menu_q* menuq, struct menu_q* resultq, char* sea
 {
 	std::array<Menu*, 3> tierp {nullptr, nullptr, nullptr};
 	Menu *mi, *before = nullptr;
-	Client_ctx* cc;
-	Winname* wn;
 
 	TAILQ_INIT(resultq);
 	TAILQ_FOREACH(mi, menuq, entry)
 	{
 		int tier = -1, t;
-		cc = (Client_ctx*)mi->ctx;
+		auto cc = (Client_ctx*)mi->ctx;
 
 		/* Match on label. */
 		if (match_substr(search, cc->label)) tier = 0;
 
 		/* Match on window name history, from present to past. */
 		if (tier < 0) {
+			Winname* wn;
 			TAILQ_FOREACH_REVERSE(wn, &cc->nameq, name_q, entry)
 			if (match_substr(search, wn->name)) {
 				tier = 1;
@@ -82,10 +81,10 @@ void search_match_client(struct menu_q* menuq, struct menu_q* resultq, char* sea
 		if (tier < 0) continue;
 
 		/* Current window is ranked down. */
-		if ((tier < tierp.size() - 1) && (cc->flags & CLIENT_ACTIVE)) tier++;
+		if ((tier < tierp.size() - 1) && (cc->flags & Client_ctx::active)) tier++;
 
 		/* Hidden window is ranked up. */
-		if ((tier > 0) && (cc->flags & CLIENT_HIDDEN)) tier--;
+		if ((tier > 0) && (cc->flags & Client_ctx::hidden)) tier--;
 
 		/*
 		 * If you have a tierp, insert after it, and make it
@@ -212,9 +211,9 @@ void search_print_client(Menu* mi, int listing)
 	Client_ctx* cc = (Client_ctx*)mi->ctx;
 	char flag = ' ';
 
-	if (cc->flags & CLIENT_ACTIVE)
+	if (cc->flags & Client_ctx::active)
 		flag = '!';
-	else if (cc->flags & CLIENT_HIDDEN)
+	else if (cc->flags & Client_ctx::hidden)
 		flag = '&';
 
 	snprintf(mi->print,

@@ -87,7 +87,7 @@ Client_ctx* client_init(Window win, Screen_ctx* sc)
 	client_transient(cc);
 	client_mwm_hints(cc);
 
-	if ((cc->flags & CLIENT_IGNORE)) cc->bwidth = 0;
+	if (cc->flags & Client_ctx::ignore) cc->bwidth = 0;
 	cc->dim.w = (cc->geom.w - cc->hint.basew) / cc->hint.incw;
 	cc->dim.h = (cc->geom.h - cc->hint.baseh) / cc->hint.inch;
 	cc->ptr.x = cc->geom.w / 2;
@@ -145,14 +145,14 @@ Client_ctx* client_current(Screen_ctx* sc)
 	if (sc) {
 		TAILQ_FOREACH(cc, &sc->clientq, entry)
 		{
-			if (cc->flags & CLIENT_ACTIVE) return cc;
+			if (cc->flags & Client_ctx::active) return cc;
 		}
 	} else {
 		TAILQ_FOREACH(_sc, &Screenq, entry)
 		{
 			TAILQ_FOREACH(cc, &_sc->clientq, entry)
 			{
-				if (cc->flags & CLIENT_ACTIVE) return cc;
+				if (cc->flags & Client_ctx::active) return cc;
 			}
 		}
 	}
@@ -202,7 +202,7 @@ void client_remove(Client_ctx* cc)
 	xu_ewmh_net_client_list(sc);
 	xu_ewmh_net_client_list_stacking(sc);
 
-	if (cc->flags & CLIENT_ACTIVE) xu_ewmh_net_active_window(sc, None);
+	if (cc->flags & Client_ctx::active) xu_ewmh_net_active_window(sc, None);
 
 	while ((wn = TAILQ_FIRST(&cc->nameq)) != nullptr) {
 		TAILQ_REMOVE(&cc->nameq, wn, entry);
@@ -221,26 +221,26 @@ void client_set_active(Client_ctx* cc)
 	Screen_ctx* sc = cc->sc;
 	Client_ctx* oldcc;
 
-	if (cc->flags & CLIENT_HIDDEN) return;
+	if (cc->flags & Client_ctx::hidden) return;
 
 	XInstallColormap(X_Dpy, cc->colormap);
 
-	if ((cc->flags & CLIENT_INPUT) || (!(cc->flags & CLIENT_WM_TAKE_FOCUS))) {
+	if ((cc->flags & Client_ctx::input) || (!(cc->flags & Client_ctx::wm_take_focus))) {
 		XSetInputFocus(X_Dpy, cc->win, RevertToPointerRoot, CurrentTime);
 	}
-	if (cc->flags & CLIENT_WM_TAKE_FOCUS)
+	if (cc->flags & Client_ctx::wm_take_focus)
 		xu_send_clientmsg(cc->win, cwmh[WM_TAKE_FOCUS], Last_Event_Time);
 
 	if ((oldcc = client_current(sc)) != nullptr) {
-		oldcc->flags &= ~CLIENT_ACTIVE;
+		oldcc->flags &= ~Client_ctx::active;
 		client_draw_border(oldcc);
 	}
 
 	/* If we're in the middle of cycling, don't change the order. */
 	if (!sc->cycling) client_mtf(cc);
 
-	cc->flags |= CLIENT_ACTIVE;
-	cc->flags &= ~CLIENT_URGENCY;
+	cc->flags |= Client_ctx::active;
+	cc->flags &= ~Client_ctx::urgency;
 	client_draw_border(cc);
 	conf_grab_mouse(cc->win);
 	xu_ewmh_net_active_window(sc, cc->win);
@@ -248,33 +248,33 @@ void client_set_active(Client_ctx* cc)
 
 void client_toggle_freeze(Client_ctx* cc)
 {
-	if (cc->flags & CLIENT_FULLSCREEN) return;
+	if (cc->flags & Client_ctx::fullscreen) return;
 
-	cc->flags ^= CLIENT_FREEZE;
+	cc->flags ^= Client_ctx::freeze;
 	xu_ewmh_set_net_wm_state(cc);
 }
 
 void client_toggle_hidden(Client_ctx* cc)
 {
-	cc->flags ^= CLIENT_HIDDEN;
+	cc->flags ^= Client_ctx::hidden;
 	xu_ewmh_set_net_wm_state(cc);
 }
 
 void client_toggle_skip_pager(Client_ctx* cc)
 {
-	cc->flags ^= CLIENT_SKIP_PAGER;
+	cc->flags ^= Client_ctx::skip_pager;
 	xu_ewmh_set_net_wm_state(cc);
 }
 
 void client_toggle_skip_taskbar(Client_ctx* cc)
 {
-	cc->flags ^= CLIENT_SKIP_TASKBAR;
+	cc->flags ^= Client_ctx::skip_taskbar;
 	xu_ewmh_set_net_wm_state(cc);
 }
 
 void client_toggle_sticky(Client_ctx* cc)
 {
-	cc->flags ^= CLIENT_STICKY;
+	cc->flags ^= Client_ctx::sticky;
 	xu_ewmh_set_net_wm_state(cc);
 }
 
@@ -283,12 +283,12 @@ void client_toggle_fullscreen(Client_ctx* cc)
 	Screen_ctx* sc = cc->sc;
 	Geom area;
 
-	if ((cc->flags & CLIENT_FREEZE) && !(cc->flags & CLIENT_FULLSCREEN)) return;
+	if ((cc->flags & Client_ctx::freeze) && !(cc->flags & Client_ctx::fullscreen)) return;
 
-	if (cc->flags & CLIENT_FULLSCREEN) {
-		if (!(cc->flags & CLIENT_IGNORE)) cc->bwidth = conf->bwidth;
+	if (cc->flags & Client_ctx::fullscreen) {
+		if (!(cc->flags & Client_ctx::ignore)) cc->bwidth = conf->bwidth;
 		cc->geom = cc->fullgeom;
-		cc->flags &= ~(CLIENT_FULLSCREEN | CLIENT_FREEZE);
+		cc->flags &= ~(Client_ctx::fullscreen | Client_ctx::freeze);
 		goto resize;
 	}
 
@@ -298,7 +298,7 @@ void client_toggle_fullscreen(Client_ctx* cc)
 
 	cc->bwidth = 0;
 	cc->geom = area;
-	cc->flags |= (CLIENT_FULLSCREEN | CLIENT_FREEZE);
+	cc->flags |= (Client_ctx::fullscreen | Client_ctx::freeze);
 
 resize:
 	client_resize(cc, 0);
@@ -310,20 +310,20 @@ void client_toggle_maximize(Client_ctx* cc)
 	Screen_ctx* sc = cc->sc;
 	Geom area;
 
-	if (cc->flags & CLIENT_FREEZE) return;
+	if (cc->flags & Client_ctx::freeze) return;
 
-	if ((cc->flags & CLIENT_MAXFLAGS) == CLIENT_MAXIMIZED) {
+	if ((cc->flags & Client_ctx::maxflags) == Client_ctx::maximized) {
 		cc->geom = cc->savegeom;
-		cc->flags &= ~CLIENT_MAXIMIZED;
+		cc->flags &= ~Client_ctx::maximized;
 		goto resize;
 	}
 
-	if (!(cc->flags & CLIENT_VMAXIMIZED)) {
+	if (!(cc->flags & Client_ctx::vmaximized)) {
 		cc->savegeom.h = cc->geom.h;
 		cc->savegeom.y = cc->geom.y;
 	}
 
-	if (!(cc->flags & CLIENT_HMAXIMIZED)) {
+	if (!(cc->flags & Client_ctx::hmaximized)) {
 		cc->savegeom.w = cc->geom.w;
 		cc->savegeom.x = cc->geom.x;
 	}
@@ -334,7 +334,7 @@ void client_toggle_maximize(Client_ctx* cc)
 	cc->geom.y = area.y;
 	cc->geom.w = area.w - (cc->bwidth * 2);
 	cc->geom.h = area.h - (cc->bwidth * 2);
-	cc->flags |= CLIENT_MAXIMIZED;
+	cc->flags |= Client_ctx::maximized;
 
 resize:
 	client_resize(cc, 0);
@@ -346,12 +346,12 @@ void client_toggle_vmaximize(Client_ctx* cc)
 	Screen_ctx* sc = cc->sc;
 	Geom area;
 
-	if (cc->flags & CLIENT_FREEZE) return;
+	if (cc->flags & Client_ctx::freeze) return;
 
-	if (cc->flags & CLIENT_VMAXIMIZED) {
+	if (cc->flags & Client_ctx::vmaximized) {
 		cc->geom.y = cc->savegeom.y;
 		cc->geom.h = cc->savegeom.h;
-		cc->flags &= ~CLIENT_VMAXIMIZED;
+		cc->flags &= ~Client_ctx::vmaximized;
 		goto resize;
 	}
 
@@ -362,7 +362,7 @@ void client_toggle_vmaximize(Client_ctx* cc)
 
 	cc->geom.y = area.y;
 	cc->geom.h = area.h - (cc->bwidth * 2);
-	cc->flags |= CLIENT_VMAXIMIZED;
+	cc->flags |= Client_ctx::vmaximized;
 
 resize:
 	client_resize(cc, 0);
@@ -374,12 +374,12 @@ void client_toggle_hmaximize(Client_ctx* cc)
 	Screen_ctx* sc = cc->sc;
 	Geom area;
 
-	if (cc->flags & CLIENT_FREEZE) return;
+	if (cc->flags & Client_ctx::freeze) return;
 
-	if (cc->flags & CLIENT_HMAXIMIZED) {
+	if (cc->flags & Client_ctx::hmaximized) {
 		cc->geom.x = cc->savegeom.x;
 		cc->geom.w = cc->savegeom.w;
-		cc->flags &= ~CLIENT_HMAXIMIZED;
+		cc->flags &= ~Client_ctx::hmaximized;
 		goto resize;
 	}
 
@@ -390,7 +390,7 @@ void client_toggle_hmaximize(Client_ctx* cc)
 
 	cc->geom.x = area.x;
 	cc->geom.w = area.w - (cc->bwidth * 2);
-	cc->flags |= CLIENT_HMAXIMIZED;
+	cc->flags |= Client_ctx::hmaximized;
 
 resize:
 	client_resize(cc, 0);
@@ -400,7 +400,7 @@ resize:
 void client_resize(Client_ctx* cc, int reset)
 {
 	if (reset) {
-		cc->flags &= ~CLIENT_MAXIMIZED;
+		cc->flags &= ~Client_ctx::maximized;
 		xu_ewmh_set_net_wm_state(cc);
 	}
 
@@ -486,11 +486,11 @@ void client_hide(Client_ctx* cc)
 {
 	XUnmapWindow(X_Dpy, cc->win);
 
-	if (cc->flags & CLIENT_ACTIVE) {
-		cc->flags &= ~CLIENT_ACTIVE;
+	if (cc->flags & Client_ctx::active) {
+		cc->flags &= ~Client_ctx::active;
 		xu_ewmh_net_active_window(cc->sc, None);
 	}
-	cc->flags |= CLIENT_HIDDEN;
+	cc->flags |= Client_ctx::hidden;
 	xu_set_wm_state(cc->win, IconicState);
 }
 
@@ -498,14 +498,14 @@ void client_show(Client_ctx* cc)
 {
 	XMapRaised(X_Dpy, cc->win);
 
-	cc->flags &= ~CLIENT_HIDDEN;
+	cc->flags &= ~Client_ctx::hidden;
 	xu_set_wm_state(cc->win, NormalState);
 	client_draw_border(cc);
 }
 
 void client_urgency(Client_ctx* cc)
 {
-	if (!(cc->flags & CLIENT_ACTIVE)) cc->flags |= CLIENT_URGENCY;
+	if (!(cc->flags & Client_ctx::active)) cc->flags |= Client_ctx::urgency;
 }
 
 void client_draw_border(Client_ctx* cc)
@@ -513,15 +513,15 @@ void client_draw_border(Client_ctx* cc)
 	Screen_ctx* sc = cc->sc;
 	unsigned long pixel;
 
-	if (cc->flags & CLIENT_ACTIVE) switch (cc->flags & CLIENT_HIGHLIGHT) {
-		case CLIENT_GROUP: pixel = sc->xftcolor[CWM_COLOR_BORDER_GROUP].pixel; break;
-		case CLIENT_UNGROUP: pixel = sc->xftcolor[CWM_COLOR_BORDER_UNGROUP].pixel; break;
+	if (cc->flags & Client_ctx::active) switch (cc->flags & Client_ctx::highlight) {
+		case Client_ctx::group: pixel = sc->xftcolor[CWM_COLOR_BORDER_GROUP].pixel; break;
+		case Client_ctx::ungroup: pixel = sc->xftcolor[CWM_COLOR_BORDER_UNGROUP].pixel; break;
 		default: pixel = sc->xftcolor[CWM_COLOR_BORDER_ACTIVE].pixel; break;
 		}
 	else
 		pixel = sc->xftcolor[CWM_COLOR_BORDER_INACTIVE].pixel;
 
-	if (cc->flags & CLIENT_URGENCY) pixel = sc->xftcolor[CWM_COLOR_BORDER_URGENCY].pixel;
+	if (cc->flags & Client_ctx::urgency) pixel = sc->xftcolor[CWM_COLOR_BORDER_URGENCY].pixel;
 
 	XSetWindowBorderWidth(X_Dpy, cc->win, (unsigned int)cc->bwidth);
 	XSetWindowBorder(X_Dpy, cc->win, pixel);
@@ -551,9 +551,9 @@ static void client_wm_protocols(Client_ctx* cc)
 	if (XGetWMProtocols(X_Dpy, cc->win, &p, &j)) {
 		for (int i {0}; i < j; ++i) {
 			if (p[i] == cwmh[WM_DELETE_WINDOW])
-				cc->flags |= CLIENT_WM_DELETE_WINDOW;
+				cc->flags |= Client_ctx::wm_delete_window;
 			else if (p[i] == cwmh[WM_TAKE_FOCUS])
-				cc->flags |= CLIENT_WM_TAKE_FOCUS;
+				cc->flags |= Client_ctx::wm_take_focus;
 		}
 		XFree(p);
 	}
@@ -564,7 +564,7 @@ void client_wm_hints(Client_ctx* cc)
 	XWMHints* wmh;
 
 	if ((wmh = XGetWMHints(X_Dpy, cc->win)) != nullptr) {
-		if ((wmh->flags & InputHint) && (wmh->input)) cc->flags |= CLIENT_INPUT;
+		if ((wmh->flags & InputHint) && (wmh->input)) cc->flags |= Client_ctx::input;
 		if ((wmh->flags & XUrgencyHint)) client_urgency(cc);
 		if ((wmh->flags & StateHint)) cc->initial_state = wmh->initial_state;
 		XFree(wmh);
@@ -573,7 +573,7 @@ void client_wm_hints(Client_ctx* cc)
 
 void Client_ctx::close() const noexcept
 {
-	if (flags & CLIENT_WM_DELETE_WINDOW)
+	if (flags & Client_ctx::wm_delete_window)
 		xu_send_clientmsg(win, cwmh[WM_DELETE_WINDOW], CurrentTime);
 	else
 		XKillClient(X_Dpy, win);
@@ -619,7 +619,7 @@ static void client_placement(Client_ctx* cc)
 		if (cc->geom.x + cc->geom.w + cc->bwidth <= 0) cc->geom.x = -(cc->geom.w + cc->bwidth - 1);
 		if (cc->geom.y >= sc->view.h) cc->geom.x = sc->view.h - cc->bwidth - 1;
 		if (cc->geom.y + cc->geom.h + cc->bwidth <= 0) cc->geom.y = -(cc->geom.h + cc->bwidth - 1);
-		if (cc->flags & CLIENT_IGNORE) {
+		if (cc->flags & Client_ctx::ignore) {
 			if (((cc->obwidth * 2) + cc->geom.x + cc->geom.w) == sc->view.w)
 				cc->geom.x += cc->obwidth * 2;
 			if (((cc->obwidth * 2) + cc->geom.y + cc->geom.h) == sc->view.h)
@@ -770,8 +770,8 @@ void client_transient(Client_ctx* cc)
 
 	if (XGetTransientForHint(X_Dpy, cc->win, &trans)) {
 		if ((tc = client_find(trans)) != nullptr) {
-			if (tc->flags & CLIENT_IGNORE) {
-				cc->flags |= CLIENT_IGNORE;
+			if (tc->flags & Client_ctx::ignore) {
+				cc->flags |= Client_ctx::ignore;
 				cc->bwidth = tc->bwidth;
 			}
 		}
@@ -820,7 +820,7 @@ void client_htile(Client_ctx* cc)
 	TAILQ_FOREACH(ci, &sc->clientq, entry)
 	{
 		if (ci->gc != cc->gc) continue;
-		if (ci->flags & CLIENT_HIDDEN || ci->flags & CLIENT_IGNORE || (ci == cc)
+		if (ci->flags & Client_ctx::hidden || ci->flags & Client_ctx::ignore || (ci == cc)
 		    || ci->geom.x < area.x || ci->geom.x > (area.x + area.w) || ci->geom.y < area.y
 		    || ci->geom.y > (area.y + area.h))
 			continue;
@@ -828,9 +828,9 @@ void client_htile(Client_ctx* cc)
 	}
 	if (n == 0) return;
 
-	if (cc->flags & CLIENT_VMAXIMIZED || cc->geom.h + (cc->bwidth * 2) >= area.h) return;
+	if (cc->flags & Client_ctx::vmaximized || cc->geom.h + (cc->bwidth * 2) >= area.h) return;
 
-	cc->flags &= ~CLIENT_HMAXIMIZED;
+	cc->flags &= ~Client_ctx::hmaximized;
 	cc->geom.x = area.x;
 	cc->geom.y = area.y;
 	cc->geom.w = area.w - (cc->bwidth * 2);
@@ -845,7 +845,7 @@ void client_htile(Client_ctx* cc)
 	TAILQ_FOREACH(ci, &sc->clientq, entry)
 	{
 		if (ci->gc != cc->gc) continue;
-		if (ci->flags & CLIENT_HIDDEN || ci->flags & CLIENT_IGNORE || (ci == cc)
+		if (ci->flags & Client_ctx::hidden || ci->flags & Client_ctx::ignore || (ci == cc)
 		    || ci->geom.x < area.x || ci->geom.x > (area.x + area.w) || ci->geom.y < area.y
 		    || ci->geom.y > (area.y + area.h))
 			continue;
@@ -874,7 +874,7 @@ void client_vtile(Client_ctx* cc)
 	TAILQ_FOREACH(ci, &sc->clientq, entry)
 	{
 		if (ci->gc != cc->gc) continue;
-		if (ci->flags & CLIENT_HIDDEN || ci->flags & CLIENT_IGNORE || (ci == cc)
+		if (ci->flags & Client_ctx::hidden || ci->flags & Client_ctx::ignore || (ci == cc)
 		    || ci->geom.x < area.x || ci->geom.x > (area.x + area.w) || ci->geom.y < area.y
 		    || ci->geom.y > (area.y + area.h))
 			continue;
@@ -882,9 +882,9 @@ void client_vtile(Client_ctx* cc)
 	}
 	if (n == 0) return;
 
-	if (cc->flags & CLIENT_HMAXIMIZED || cc->geom.w + (cc->bwidth * 2) >= area.w) return;
+	if (cc->flags & Client_ctx::hmaximized || cc->geom.w + (cc->bwidth * 2) >= area.w) return;
 
-	cc->flags &= ~CLIENT_VMAXIMIZED;
+	cc->flags &= ~Client_ctx::vmaximized;
 	cc->geom.x = area.x;
 	cc->geom.y = area.y;
 	if (conf->vtile > 0) cc->geom.w = ((area.w - (cc->bwidth * 2)) * conf->vtile) / 100;
@@ -899,7 +899,7 @@ void client_vtile(Client_ctx* cc)
 	TAILQ_FOREACH(ci, &sc->clientq, entry)
 	{
 		if (ci->gc != cc->gc) continue;
-		if (ci->flags & CLIENT_HIDDEN || ci->flags & CLIENT_IGNORE || (ci == cc)
+		if (ci->flags & Client_ctx::hidden || ci->flags & Client_ctx::ignore || (ci == cc)
 		    || ci->geom.x < area.x || ci->geom.x > (area.x + area.w) || ci->geom.y < area.y
 		    || ci->geom.y > (area.y + area.h))
 			continue;

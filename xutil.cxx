@@ -503,15 +503,15 @@ void xu_ewmh_handle_net_wm_state_msg(Client_ctx* cc, int action, Atom first, Ato
 		unsigned const flag;
 		void (*const toggle)(Client_ctx*);
 	} handlers[] = {
-	    {_NET_WM_STATE_STICKY, CLIENT_STICKY, client_toggle_sticky},
-	    {_NET_WM_STATE_MAXIMIZED_VERT, CLIENT_VMAXIMIZED, client_toggle_vmaximize},
-	    {_NET_WM_STATE_MAXIMIZED_HORZ, CLIENT_HMAXIMIZED, client_toggle_hmaximize},
-	    {_NET_WM_STATE_HIDDEN, CLIENT_HIDDEN, client_toggle_hidden},
-	    {_NET_WM_STATE_FULLSCREEN, CLIENT_FULLSCREEN, client_toggle_fullscreen},
-	    {_NET_WM_STATE_DEMANDS_ATTENTION, CLIENT_URGENCY, client_urgency},
-	    {_NET_WM_STATE_SKIP_PAGER, CLIENT_SKIP_PAGER, client_toggle_skip_pager},
-	    {_NET_WM_STATE_SKIP_TASKBAR, CLIENT_SKIP_TASKBAR, client_toggle_skip_taskbar},
-	    {_CWM_WM_STATE_FREEZE, CLIENT_FREEZE, client_toggle_freeze},
+	    {_NET_WM_STATE_STICKY, Client_ctx::sticky, client_toggle_sticky},
+	    {_NET_WM_STATE_MAXIMIZED_VERT, Client_ctx::vmaximized, client_toggle_vmaximize},
+	    {_NET_WM_STATE_MAXIMIZED_HORZ, Client_ctx::hmaximized, client_toggle_hmaximize},
+	    {_NET_WM_STATE_HIDDEN, Client_ctx::hidden, client_toggle_hidden},
+	    {_NET_WM_STATE_FULLSCREEN, Client_ctx::fullscreen, client_toggle_fullscreen},
+	    {_NET_WM_STATE_DEMANDS_ATTENTION, Client_ctx::urgency, client_urgency},
+	    {_NET_WM_STATE_SKIP_PAGER, Client_ctx::skip_pager, client_toggle_skip_pager},
+	    {_NET_WM_STATE_SKIP_TASKBAR, Client_ctx::skip_taskbar, client_toggle_skip_taskbar},
+	    {_CWM_WM_STATE_FREEZE, Client_ctx::freeze, client_toggle_freeze},
 	};
 
 	for (auto const& h : handlers) {
@@ -568,18 +568,18 @@ void xu_ewmh_set_net_wm_state(Client_ctx* cc)
 			atoms[j++] = oatoms[i];
 	}
 	free(oatoms);
-	if (cc->flags & CLIENT_STICKY) atoms[j++] = ewmh[_NET_WM_STATE_STICKY];
-	if (cc->flags & CLIENT_HIDDEN) atoms[j++] = ewmh[_NET_WM_STATE_HIDDEN];
-	if (cc->flags & CLIENT_FULLSCREEN)
+	if (cc->flags & Client_ctx::sticky) atoms[j++] = ewmh[_NET_WM_STATE_STICKY];
+	if (cc->flags & Client_ctx::hidden) atoms[j++] = ewmh[_NET_WM_STATE_HIDDEN];
+	if (cc->flags & Client_ctx::fullscreen)
 		atoms[j++] = ewmh[_NET_WM_STATE_FULLSCREEN];
 	else {
-		if (cc->flags & CLIENT_VMAXIMIZED) atoms[j++] = ewmh[_NET_WM_STATE_MAXIMIZED_VERT];
-		if (cc->flags & CLIENT_HMAXIMIZED) atoms[j++] = ewmh[_NET_WM_STATE_MAXIMIZED_HORZ];
+		if (cc->flags & Client_ctx::vmaximized) atoms[j++] = ewmh[_NET_WM_STATE_MAXIMIZED_VERT];
+		if (cc->flags & Client_ctx::hmaximized) atoms[j++] = ewmh[_NET_WM_STATE_MAXIMIZED_HORZ];
 	}
-	if (cc->flags & CLIENT_URGENCY) atoms[j++] = ewmh[_NET_WM_STATE_DEMANDS_ATTENTION];
-	if (cc->flags & CLIENT_SKIP_PAGER) atoms[j++] = ewmh[_NET_WM_STATE_SKIP_PAGER];
-	if (cc->flags & CLIENT_SKIP_TASKBAR) atoms[j++] = ewmh[_NET_WM_STATE_SKIP_TASKBAR];
-	if (cc->flags & CLIENT_FREEZE) atoms[j++] = ewmh[_CWM_WM_STATE_FREEZE];
+	if (cc->flags & Client_ctx::urgency) atoms[j++] = ewmh[_NET_WM_STATE_DEMANDS_ATTENTION];
+	if (cc->flags & Client_ctx::skip_pager) atoms[j++] = ewmh[_NET_WM_STATE_SKIP_PAGER];
+	if (cc->flags & Client_ctx::skip_taskbar) atoms[j++] = ewmh[_NET_WM_STATE_SKIP_TASKBAR];
+	if (cc->flags & Client_ctx::freeze) atoms[j++] = ewmh[_CWM_WM_STATE_FREEZE];
 	if (j > 0)
 		XChangeProperty(X_Dpy,
 		                cc->win,

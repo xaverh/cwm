@@ -101,7 +101,7 @@ static void kbfunc_client_move_kb(void* ctx, Cargs* cargs)
 	Geom area;
 	int mx = 0, my = 0;
 
-	if (cc->flags & CLIENT_FREEZE) return;
+	if (cc->flags & Client_ctx::freeze) return;
 
 	kbfunc_amount(cargs->flag, conf->mamount, &mx, &my);
 
@@ -129,7 +129,7 @@ static void kbfunc_client_move_kb(void* ctx, Cargs* cargs)
 	XSync(X_Dpy, True);
 }
 
-static void kbfunc_client_move_mb(void* ctx,[[maybe_unused]]  Cargs* cargs)
+static void kbfunc_client_move_mb(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	auto cc = (Client_ctx*)ctx;
 	XEvent ev;
@@ -140,7 +140,7 @@ static void kbfunc_client_move_mb(void* ctx,[[maybe_unused]]  Cargs* cargs)
 
 	client_raise(cc);
 
-	if (cc->flags & CLIENT_FREEZE) return;
+	if (cc->flags & Client_ctx::freeze) return;
 
 	client_ptr_inbound(cc, 1);
 
@@ -197,7 +197,7 @@ static void kbfunc_client_resize_kb(void* ctx, Cargs* cargs)
 	int mx = 0, my = 0;
 	int amt = 1;
 
-	if (cc->flags & CLIENT_FREEZE) return;
+	if (cc->flags & Client_ctx::freeze) return;
 
 	if (!(cc->hint.flags & PResizeInc)) amt = conf->mamount;
 
@@ -221,7 +221,7 @@ static void kbfunc_client_resize_mb(void* ctx, [[maybe_unused]] Cargs* cargs)
 	Screen_ctx* sc = cc->sc;
 	int resize = 1;
 
-	if (cc->flags & CLIENT_FREEZE) return;
+	if (cc->flags & Client_ctx::freeze) return;
 
 	client_raise(cc);
 	client_ptr_save(cc);
@@ -299,12 +299,12 @@ void kbfunc_client_snap(void* ctx, Cargs* cargs)
 	client_ptr_inbound(cc, 1);
 }
 
-void kbfunc_client_close(void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_client_close(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	((Client_ctx*)ctx)->close();
 }
 
-void kbfunc_client_lower(void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_client_lower(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	client_ptr_save((Client_ctx*)ctx);
 	client_lower((Client_ctx*)ctx);
@@ -330,17 +330,17 @@ void kbfunc_client_toggle_sticky(void* ctx, [[maybe_unused]] Cargs* cargs)
 	client_toggle_sticky((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_fullscreen(void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_client_toggle_fullscreen(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	client_toggle_fullscreen((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_maximize(void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_client_toggle_maximize(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	client_toggle_maximize((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_hmaximize(void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_client_toggle_hmaximize(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	client_toggle_hmaximize((Client_ctx*)ctx);
 }
@@ -364,7 +364,8 @@ void kbfunc_client_cycle(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	auto sc = (Screen_ctx*)ctx;
 	Client_ctx *newcc, *oldcc, *prevcc;
-	int again = 1, flags = cargs->flag;
+	int again = 1;
+	auto flags = cargs->flag;
 
 	/* For X apps that ignore/steal events. */
 	if (cargs->xev == cwm::Xev::key)
@@ -385,7 +386,7 @@ void kbfunc_client_cycle(void* ctx, [[maybe_unused]] Cargs* cargs)
 		newcc = (flags & CWM_CYCLE_REVERSE) ? client_prev(newcc) : client_next(newcc);
 
 		/* Only cycle visible and non-ignored windows. */
-		if ((newcc->flags & (CLIENT_SKIP_CYCLE))
+		if ((newcc->flags & (Client_ctx::skip_cycle))
 		    || ((flags & CWM_CYCLE_INGROUP) && (newcc->gc != oldcc->gc)))
 			again = 1;
 
@@ -434,7 +435,7 @@ void kbfunc_group_toggle(void* ctx, Cargs* cargs)
 	group_toggle((Screen_ctx*)ctx, cargs->flag);
 }
 
-void kbfunc_group_toggle_all(void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_group_toggle_all(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	group_toggle_all((Screen_ctx*)ctx);
 }
@@ -462,7 +463,7 @@ void kbfunc_menu_client(void* ctx, Cargs* cargs)
 	TAILQ_INIT(&menuq);
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	{
-		if ((cargs->flag & CWM_MENU_WINDOW_ALL) || (cc->flags & CLIENT_HIDDEN))
+		if ((cargs->flag & CWM_MENU_WINDOW_ALL) || (cc->flags & Client_ctx::hidden))
 			menuq_add(&menuq, cc, nullptr);
 	}
 
@@ -550,7 +551,6 @@ void kbfunc_menu_group(void* ctx, Cargs* cargs)
 void kbfunc_menu_wm(void* ctx, Cargs* cargs)
 {
 	auto sc = (Screen_ctx*)ctx;
-	Cmd_ctx* wm;
 	Menu* mi;
 	struct menu_q menuq;
 	int mflags = 0;
@@ -558,13 +558,12 @@ void kbfunc_menu_wm(void* ctx, Cargs* cargs)
 	if (cargs->xev == cwm::Xev::btn) mflags |= CWM_MENU_LIST;
 
 	TAILQ_INIT(&menuq);
-	TAILQ_FOREACH(wm, &conf->wmq, entry)
-	menuq_add(&menuq, wm, nullptr);
+	for (auto wm : conf->wmq) menuq_add(&menuq, wm, nullptr);
 
 	if ((mi = menu_filter(sc, &menuq, "wm", nullptr, mflags, search_match_wm, search_print_wm))
 	    != nullptr) {
-		wm = (Cmd_ctx*)mi->ctx;
-		free(conf->wm_argv);
+		auto wm = (Cmd_ctx*)mi->ctx;
+		std::free(conf->wm_argv);
 		conf->wm_argv = xstrdup(wm->path);
 		cwm_status = Cwm_status::CWM_EXEC_WM;
 	}
@@ -627,7 +626,7 @@ out:
 	menuq_clear(&menuq);
 }
 
-void kbfunc_menu_ssh(void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_menu_ssh(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	auto sc = (Screen_ctx*)ctx;
 	Cmd_ctx* cmd;
@@ -689,7 +688,7 @@ out:
 	menuq_clear(&menuq);
 }
 
-void kbfunc_client_menu_label(void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_client_menu_label(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	auto cc = (Client_ctx*)ctx;
 	Menu* mi;
@@ -707,9 +706,7 @@ void kbfunc_client_menu_label(void* ctx,[[maybe_unused]]  Cargs* cargs)
 	                 search_match_text,
 	                 search_print_text);
 
-	if (!mi->abort) {
-		cc->label = xstrdup(mi->text);
-	}
+	if (!mi->abort) { cc->label = xstrdup(mi->text); }
 	free(mi);
 }
 
@@ -718,7 +715,7 @@ void kbfunc_exec_cmd([[maybe_unused]] void* ctx, Cargs* cargs)
 	u_spawn(cargs->cmd);
 }
 
-void kbfunc_exec_term([[maybe_unused]] void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_exec_term([[maybe_unused]] void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	Cmd_ctx* cmd;
 
@@ -728,7 +725,7 @@ void kbfunc_exec_term([[maybe_unused]] void* ctx,[[maybe_unused]]  Cargs* cargs)
 	}
 }
 
-void kbfunc_exec_lock([[maybe_unused]] void* ctx,[[maybe_unused]]  Cargs* cargs)
+void kbfunc_exec_lock([[maybe_unused]] void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	Cmd_ctx* cmd;
 
