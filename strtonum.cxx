@@ -28,13 +28,13 @@
 #define TOOSMALL 2
 #define TOOLARGE 3
 
-long long strtonum(const char* numstr, long long minval, long long maxval, const char** errstrp)
+long long strtonum(char const* numstr, long long minval, long long maxval, char const** errstrp)
 {
 	long long ll = 0;
 	int error = 0;
 	char* ep;
 	struct errval {
-		const char* errstr;
+		char const* errstr;
 		int err;
 	} ev[4] = {
 	    {nullptr, 0},

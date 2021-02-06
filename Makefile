@@ -14,6 +14,8 @@ PKG_CONFIG?=	pkg-config
 CPPFLAGS+=	`${PKG_CONFIG} --cflags x11 xft xrandr`
 
 CFLAGS?=	-Wall -O2 -g -D_GNU_SOURCE
+CXXFLAGS?=  -Wall -O2 -g -D_GNU_SOURCE
+CXXFLAGS+=  -std=c++20
 
 LDFLAGS+=	`${PKG_CONFIG} --libs x11 xft xrandr`
 
@@ -25,7 +27,7 @@ clean:
 	rm -f ${OBJS} ${PROG}
 
 ${PROG}: ${OBJS}
-	${CXX} ${OBJS} ${LDFLAGS} -o ${PROG}
+	${CXX} ${CXXFLAGS} ${OBJS} ${LDFLAGS} -o ${PROG}
 
 %.o: %.cxx
 	${CXX} -c ${CXXFLAGS} ${CPPFLAGS} $<

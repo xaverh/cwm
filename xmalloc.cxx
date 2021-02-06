@@ -62,7 +62,7 @@ void* xreallocarray(void* ptr, size_t nmemb, size_t size)
 	return p;
 }
 
-char* xstrdup(const char* str)
+char* xstrdup(char const* str)
 {
 	char* p;
 
@@ -71,7 +71,7 @@ char* xstrdup(const char* str)
 	return p;
 }
 
-int xasprintf(char** ret, const char* fmt, ...)
+int xasprintf(char** ret, char const* fmt, ...)
 {
 	va_list ap;
 	int i;
@@ -83,7 +83,7 @@ int xasprintf(char** ret, const char* fmt, ...)
 	return i;
 }
 
-int xvasprintf(char** ret, const char* fmt, va_list ap)
+int xvasprintf(char** ret, char const* fmt, va_list ap)
 {
 	int i;
 

@@ -31,15 +31,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static struct geom screen_apply_gap(struct screen_ctx*, struct geom);
-static void screen_scan(struct screen_ctx*);
+static Geom screen_apply_gap(Screen_ctx*, Geom);
+static void screen_scan(Screen_ctx*);
 
 void screen_init(int which)
 {
-	struct screen_ctx* sc;
+	Screen_ctx* sc;
 	XSetWindowAttributes attr;
 
-	sc = (screen_ctx*)xmalloc(sizeof(*sc));
+	sc = (Screen_ctx*)xmalloc(sizeof(*sc));
 
 	TAILQ_INIT(&sc->clientq);
 	TAILQ_INIT(&sc->regionq);
@@ -65,12 +65,12 @@ void screen_init(int which)
 	xu_ewmh_net_showing_desktop(sc);
 	xu_ewmh_net_virtual_roots(sc);
 
-	attr.cursor = Conf.cursor[CF_NORMAL];
+	attr.cursor = conf.cursor[CF_NORMAL];
 	attr.event_mask = SubstructureRedirectMask | SubstructureNotifyMask | EnterWindowMask
 	                  | PropertyChangeMask | ButtonPressMask;
 	XChangeWindowAttributes(X_Dpy, sc->rootwin, (CWEventMask | CWCursor), &attr);
 
-	if (Conf.xrandr) XRRSelectInput(X_Dpy, sc->rootwin, RRScreenChangeNotifyMask);
+	if (conf.xrandr) XRRSelectInput(X_Dpy, sc->rootwin, RRScreenChangeNotifyMask);
 
 	screen_scan(sc);
 	screen_updatestackingorder(sc);
@@ -80,9 +80,9 @@ void screen_init(int which)
 	XSync(X_Dpy, False);
 }
 
-static void screen_scan(struct screen_ctx* sc)
+static void screen_scan(Screen_ctx* sc)
 {
-	struct client_ctx *cc, *active = nullptr;
+	Client_ctx *cc, *active = nullptr;
 	Window *wins, w0, w1, rwin, cwin;
 	unsigned int nwins, i, mask;
 	int rx, ry, wx, wy;
@@ -99,9 +99,9 @@ static void screen_scan(struct screen_ctx* sc)
 	if (active) client_set_active(active);
 }
 
-struct screen_ctx* screen_find(Window win)
+Screen_ctx* screen_find(Window win)
 {
-	struct screen_ctx* sc;
+	Screen_ctx* sc;
 
 	TAILQ_FOREACH(sc, &Screenq, entry)
 	{
@@ -111,10 +111,10 @@ struct screen_ctx* screen_find(Window win)
 	return nullptr;
 }
 
-void screen_updatestackingorder(struct screen_ctx* sc)
+void screen_updatestackingorder(Screen_ctx* sc)
 {
 	Window *wins, w0, w1;
-	struct client_ctx* cc;
+	Client_ctx* cc;
 	unsigned int nwins, i, s;
 
 	if (XQueryTree(X_Dpy, sc->rootwin, &w0, &w1, &wins, &nwins)) {
@@ -128,9 +128,9 @@ void screen_updatestackingorder(struct screen_ctx* sc)
 	}
 }
 
-struct region_ctx* region_find(struct screen_ctx* sc, int x, int y)
+Region_ctx* region_find(Screen_ctx* sc, int x, int y)
 {
-	struct region_ctx* rc;
+	Region_ctx* rc;
 
 	TAILQ_FOREACH(rc, &sc->regionq, entry)
 	{
@@ -142,10 +142,10 @@ struct region_ctx* region_find(struct screen_ctx* sc, int x, int y)
 	return rc;
 }
 
-struct geom screen_area(struct screen_ctx* sc, int x, int y, int apply_gap)
+Geom screen_area(Screen_ctx* sc, int x, int y, int apply_gap)
 {
-	struct region_ctx* rc;
-	struct geom area = sc->view;
+	Region_ctx* rc;
+	Geom area = sc->view;
 
 	TAILQ_FOREACH(rc, &sc->regionq, entry)
 	{
@@ -159,9 +159,9 @@ struct geom screen_area(struct screen_ctx* sc, int x, int y, int apply_gap)
 	return area;
 }
 
-void screen_update_geometry(struct screen_ctx* sc)
+void screen_update_geometry(Screen_ctx* sc)
 {
-	struct region_ctx* rc;
+	Region_ctx* rc;
 
 	sc->view.x = 0;
 	sc->view.y = 0;
@@ -174,7 +174,7 @@ void screen_update_geometry(struct screen_ctx* sc)
 		free(rc);
 	}
 
-	if (Conf.xrandr) {
+	if (conf.xrandr) {
 		XRRScreenResources* sr;
 		XRRCrtcInfo* ci;
 		int i;
@@ -188,7 +188,7 @@ void screen_update_geometry(struct screen_ctx* sc)
 				continue;
 			}
 
-			rc = (region_ctx*)xmalloc(sizeof(*rc));
+			rc = (Region_ctx*)xmalloc(sizeof(*rc));
 			rc->num = i;
 			rc->view.x = ci->x;
 			rc->view.y = ci->y;
@@ -201,7 +201,7 @@ void screen_update_geometry(struct screen_ctx* sc)
 		}
 		XRRFreeScreenResources(sr);
 	} else {
-		rc = (region_ctx*)xmalloc(sizeof(*rc));
+		rc = (Region_ctx*)xmalloc(sizeof(*rc));
 		rc->num = 0;
 		rc->view.x = 0;
 		rc->view.y = 0;
@@ -216,20 +216,20 @@ void screen_update_geometry(struct screen_ctx* sc)
 	xu_ewmh_net_workarea(sc);
 }
 
-static struct geom screen_apply_gap(struct screen_ctx* sc, struct geom geom)
+static Geom screen_apply_gap(Screen_ctx* sc, Geom Geom)
 {
-	geom.x += sc->gap.left;
-	geom.y += sc->gap.top;
-	geom.w -= (sc->gap.left + sc->gap.right);
-	geom.h -= (sc->gap.top + sc->gap.bottom);
+	Geom.x += sc->gap.left;
+	Geom.y += sc->gap.top;
+	Geom.w -= (sc->gap.left + sc->gap.right);
+	Geom.h -= (sc->gap.top + sc->gap.bottom);
 
-	return geom;
+	return Geom;
 }
 
 /* Bring back clients which are beyond the screen. */
-void screen_assert_clients_within(struct screen_ctx* sc)
+void screen_assert_clients_within(Screen_ctx* sc)
 {
-	struct client_ctx* cc;
+	Client_ctx* cc;
 	int top, left, right, bottom;
 
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
@@ -247,7 +247,7 @@ void screen_assert_clients_within(struct screen_ctx* sc)
 	}
 }
 
-void screen_prop_win_create(struct screen_ctx* sc, Window win)
+void screen_prop_win_create(Screen_ctx* sc, Window win)
 {
 	sc->prop.win = XCreateSimpleWindow(X_Dpy,
 	                                   win,
@@ -263,13 +263,13 @@ void screen_prop_win_create(struct screen_ctx* sc, Window win)
 	XMapWindow(X_Dpy, sc->prop.win);
 }
 
-void screen_prop_win_destroy(struct screen_ctx* sc)
+void screen_prop_win_destroy(Screen_ctx* sc)
 {
 	XftDrawDestroy(sc->prop.xftdraw);
 	XDestroyWindow(X_Dpy, sc->prop.win);
 }
 
-void screen_prop_win_draw(struct screen_ctx* sc, const char* fmt, ...)
+void screen_prop_win_draw(Screen_ctx* sc, char const* fmt, ...)
 {
 	va_list ap;
 	char* text;

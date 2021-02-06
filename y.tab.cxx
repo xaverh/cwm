@@ -21,11 +21,11 @@ static struct file {
 	int lineno;
 	int errors;
 } * file, *topfile;
-struct file* pushfile(const char*, FILE*);
+struct file* pushfile(char const*, FILE*);
 int popfile();
 int yyparse();
 int yylex();
-int yyerror(const char* /*fmt*/, ...) __attribute__((__format__(printf, 1, 2)))
+int yyerror(char const* /*fmt*/, ...) __attribute__((__format__(printf, 1, 2)))
 __attribute__((__nonnull__(1)));
 int kw_cmp(const void*, const void*);
 int lookup(char*);
@@ -33,7 +33,7 @@ int lgetc(int);
 int lungetc(int);
 int findeol();
 
-static struct Conf* conf;
+static struct Conf* config;
 
 struct YYSTYPE {
 	union {
@@ -224,13 +224,6 @@ static constexpr int_least8_t yyr2[] = {0, 2, 0, 2, 3, 3, 3, 2, 1, 1, 1, 2, 2, 2
 
 enum { YYENOMEM = -2 };
 
-#define yyerrok (yyerrstatus = 0)
-#define yyclearin (yychar = YYEMPTY)
-
-#define YYACCEPT goto yyacceptlab
-#define YYABORT goto yyabortlab
-#define YYERROR goto yyerrorlab
-
 /* YYINITDEPTH -- initial size of the parser's stacks.  */
 static constexpr auto YYINITDEPTH {200};
 
@@ -238,7 +231,7 @@ static constexpr auto YYINITDEPTH {200};
 | Release the memory associated to this symbol.  |
 `-----------------------------------------------*/
 
-static void yydestruct(const char* yymsg,
+static void yydestruct(char const* yymsg,
                        [[maybe_unused]] yysymbol_kind_t yykind,
                        [[maybe_unused]] YYSTYPE* yyvaluep)
 {
@@ -418,13 +411,13 @@ yyreduce:
 
 	case 11: /* main: FONTNAME STRING  */
 	{
-		std::free(conf->font);
-		conf->font = (yyvsp[0].v.string);
+		std::free(config->font);
+		config->font = (yyvsp[0].v.string);
 	} break;
 
 	case 12: /* main: STICKY yesno  */
 	{
-		conf->stickygroups = (yyvsp[0].v.number);
+		config->stickygroups = (yyvsp[0].v.number);
 	} break;
 
 	case 13: /* main: BORDERWIDTH NUMBER  */
@@ -433,7 +426,7 @@ yyreduce:
 			yyerror("invalid borderwidth");
 			goto yyerrorlab;
 		}
-		conf->bwidth = (yyvsp[0].v.number);
+		config->bwidth = (yyvsp[0].v.number);
 	} break;
 
 	case 14: /* main: HTILE NUMBER  */
@@ -442,7 +435,7 @@ yyreduce:
 			yyerror("invalid htile percent");
 			goto yyerrorlab;
 		}
-		conf->htile = (yyvsp[0].v.number);
+		config->htile = (yyvsp[0].v.number);
 	} break;
 
 	case 15: /* main: VTILE NUMBER  */
@@ -451,7 +444,7 @@ yyreduce:
 			yyerror("invalid vtile percent");
 			goto yyerrorlab;
 		}
-		conf->vtile = (yyvsp[0].v.number);
+		config->vtile = (yyvsp[0].v.number);
 	} break;
 
 	case 16: /* main: MOVEAMOUNT NUMBER  */
@@ -460,7 +453,7 @@ yyreduce:
 			yyerror("invalid movemount");
 			goto yyerrorlab;
 		}
-		conf->mamount = (yyvsp[0].v.number);
+		config->mamount = (yyvsp[0].v.number);
 	} break;
 
 	case 17: /* main: SNAPDIST NUMBER  */
@@ -469,7 +462,7 @@ yyreduce:
 			yyerror("invalid snapdist");
 			goto yyerrorlab;
 		}
-		conf->snapdist = (yyvsp[0].v.number);
+		config->snapdist = (yyvsp[0].v.number);
 	} break;
 
 	case 18: /* main: COMMAND STRING string  */
@@ -480,7 +473,7 @@ yyreduce:
 			std::free((yyvsp[0].v.string));
 			goto yyerrorlab;
 		}
-		conf_cmd_add(conf, (yyvsp[-1].v.string), (yyvsp[0].v.string));
+		conf_cmd_add(config, (yyvsp[-1].v.string), (yyvsp[0].v.string));
 		std::free((yyvsp[-1].v.string));
 		std::free((yyvsp[0].v.string));
 	} break;
@@ -493,7 +486,7 @@ yyreduce:
 			std::free((yyvsp[0].v.string));
 			goto yyerrorlab;
 		}
-		conf_wm_add(conf, (yyvsp[-1].v.string), (yyvsp[0].v.string));
+		conf_wm_add(config, (yyvsp[-1].v.string), (yyvsp[0].v.string));
 		std::free((yyvsp[-1].v.string));
 		std::free((yyvsp[0].v.string));
 	}
@@ -508,7 +501,7 @@ yyreduce:
 			std::free((yyvsp[0].v.string));
 			goto yyerrorlab;
 		}
-		conf_autogroup(conf, (yyvsp[-1].v.number), nullptr, (yyvsp[0].v.string));
+		conf_autogroup(config, (yyvsp[-1].v.number), nullptr, (yyvsp[0].v.string));
 		std::free((yyvsp[0].v.string));
 	}
 
@@ -523,7 +516,7 @@ yyreduce:
 			std::free((yyvsp[0].v.string));
 			goto yyerrorlab;
 		}
-		conf_autogroup(conf, (yyvsp[-3].v.number), (yyvsp[-2].v.string), (yyvsp[0].v.string));
+		conf_autogroup(config, (yyvsp[-3].v.number), (yyvsp[-2].v.string), (yyvsp[0].v.string));
 		std::free((yyvsp[-2].v.string));
 		std::free((yyvsp[0].v.string));
 	}
@@ -533,7 +526,7 @@ yyreduce:
 	case 22: /* main: IGNORE STRING  */
 
 	{
-		conf_ignore(conf, (yyvsp[0].v.string));
+		conf_ignore(config, (yyvsp[0].v.string));
 		std::free((yyvsp[0].v.string));
 	}
 
@@ -549,10 +542,10 @@ yyreduce:
 			yyerror("invalid gap");
 			goto yyerrorlab;
 		}
-		conf->gap.top = (yyvsp[-3].v.number);
-		conf->gap.bottom = (yyvsp[-2].v.number);
-		conf->gap.left = (yyvsp[-1].v.number);
-		conf->gap.right = (yyvsp[0].v.number);
+		config->gap.top = (yyvsp[-3].v.number);
+		config->gap.bottom = (yyvsp[-2].v.number);
+		config->gap.left = (yyvsp[-1].v.number);
+		config->gap.right = (yyvsp[0].v.number);
 	}
 
 	break;
@@ -560,7 +553,7 @@ yyreduce:
 	case 24: /* main: BINDKEY STRING string  */
 
 	{
-		if (!conf_bind_key(conf, (yyvsp[-1].v.string), (yyvsp[0].v.string))) {
+		if (!conf_bind_key(config, (yyvsp[-1].v.string), (yyvsp[0].v.string))) {
 			yyerror("invalid bind-key: %s %s", (yyvsp[-1].v.string), (yyvsp[0].v.string));
 			std::free((yyvsp[-1].v.string));
 			std::free((yyvsp[0].v.string));
@@ -575,7 +568,7 @@ yyreduce:
 	case 25: /* main: UNBINDKEY STRING  */
 
 	{
-		if (!conf_bind_key(conf, (yyvsp[0].v.string), nullptr)) {
+		if (!conf_bind_key(config, (yyvsp[0].v.string), nullptr)) {
 			yyerror("invalid unbind-key: %s", (yyvsp[0].v.string));
 			std::free((yyvsp[0].v.string));
 			goto yyerrorlab;
@@ -588,7 +581,7 @@ yyreduce:
 	case 26: /* main: BINDMOUSE STRING string  */
 
 	{
-		if (!conf_bind_mouse(conf, (yyvsp[-1].v.string), (yyvsp[0].v.string))) {
+		if (!conf_bind_mouse(config, (yyvsp[-1].v.string), (yyvsp[0].v.string))) {
 			yyerror("invalid bind-mouse: %s %s", (yyvsp[-1].v.string), (yyvsp[0].v.string));
 			std::free((yyvsp[-1].v.string));
 			std::free((yyvsp[0].v.string));
@@ -603,7 +596,7 @@ yyreduce:
 	case 27: /* main: UNBINDMOUSE STRING  */
 
 	{
-		if (!conf_bind_mouse(conf, (yyvsp[0].v.string), nullptr)) {
+		if (!conf_bind_mouse(config, (yyvsp[0].v.string), nullptr)) {
 			yyerror("invalid unbind-mouse: %s", (yyvsp[0].v.string));
 			std::free((yyvsp[0].v.string));
 			goto yyerrorlab;
@@ -616,8 +609,8 @@ yyreduce:
 	case 29: /* colors: ACTIVEBORDER STRING  */
 
 	{
-		std::free(conf->color[CWM_COLOR_BORDER_ACTIVE]);
-		conf->color[CWM_COLOR_BORDER_ACTIVE] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_BORDER_ACTIVE]);
+		config->color[CWM_COLOR_BORDER_ACTIVE] = (yyvsp[0].v.string);
 	}
 
 	break;
@@ -625,39 +618,39 @@ yyreduce:
 	case 30: /* colors: INACTIVEBORDER STRING  */
 
 	{
-		std::free(conf->color[CWM_COLOR_BORDER_INACTIVE]);
-		conf->color[CWM_COLOR_BORDER_INACTIVE] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_BORDER_INACTIVE]);
+		config->color[CWM_COLOR_BORDER_INACTIVE] = (yyvsp[0].v.string);
 	}
 
 	break;
 
 	case 31: /* colors: URGENCYBORDER STRING  */
-		std::free(conf->color[CWM_COLOR_BORDER_URGENCY]);
-		conf->color[CWM_COLOR_BORDER_URGENCY] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_BORDER_URGENCY]);
+		config->color[CWM_COLOR_BORDER_URGENCY] = (yyvsp[0].v.string);
 		break;
 	case 32: /* colors: GROUPBORDER STRING  */
-		std::free(conf->color[CWM_COLOR_BORDER_GROUP]);
-		conf->color[CWM_COLOR_BORDER_GROUP] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_BORDER_GROUP]);
+		config->color[CWM_COLOR_BORDER_GROUP] = (yyvsp[0].v.string);
 		break;
 	case 33: /* colors: UNGROUPBORDER STRING  */
-		std::free(conf->color[CWM_COLOR_BORDER_UNGROUP]);
-		conf->color[CWM_COLOR_BORDER_UNGROUP] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_BORDER_UNGROUP]);
+		config->color[CWM_COLOR_BORDER_UNGROUP] = (yyvsp[0].v.string);
 		break;
 	case 34: /* colors: MENUBG STRING  */
-		std::free(conf->color[CWM_COLOR_MENU_BG]);
-		conf->color[CWM_COLOR_MENU_BG] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_MENU_BG]);
+		config->color[CWM_COLOR_MENU_BG] = (yyvsp[0].v.string);
 		break;
 	case 35: /* colors: MENUFG STRING  */
-		std::free(conf->color[CWM_COLOR_MENU_FG]);
-		conf->color[CWM_COLOR_MENU_FG] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_MENU_FG]);
+		config->color[CWM_COLOR_MENU_FG] = (yyvsp[0].v.string);
 		break;
 	case 36: /* colors: FONTCOLOR STRING  */
-		std::free(conf->color[CWM_COLOR_MENU_FONT]);
-		conf->color[CWM_COLOR_MENU_FONT] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_MENU_FONT]);
+		config->color[CWM_COLOR_MENU_FONT] = (yyvsp[0].v.string);
 		break;
 	case 37: /* colors: FONTSELCOLOR STRING  */
-		std::free(conf->color[CWM_COLOR_MENU_FONT_SEL]);
-		conf->color[CWM_COLOR_MENU_FONT_SEL] = (yyvsp[0].v.string);
+		std::free(config->color[CWM_COLOR_MENU_FONT_SEL]);
+		config->color[CWM_COLOR_MENU_FONT_SEL] = (yyvsp[0].v.string);
 		break;
 	default: break;
 	}
@@ -666,8 +659,8 @@ yyreduce:
 	   approach of translating immediately before every use of yytoken.
 	   One alternative is translating here after every semantic action,
 	   but that translation would be missed if the semantic action invokes
-	   YYABORT, YYACCEPT, or yyerrorlab immediately after altering yychar or
-	   if it invokes YYBACKUP.  In the case of YYABORT or YYACCEPT, an
+	   yyabortlab, yyacceptlab, or yyerrorlab immediately after altering yychar or
+	   if it invokes YYBACKUP.  In the case of yyabortlab or yyacceptlab, an
 	   incorrect destructor might then be invoked immediately.  In the
 	   case of yyerrorlab or YYBACKUP, subsequent parser actions might lead
 	   to an incorrect destructor call or verbose syntax error message
@@ -761,14 +754,14 @@ yyerrlab1:
 	goto yynewstate;
 
 /*-------------------------------------.
-| yyacceptlab -- YYACCEPT comes here.  |
+| yyacceptlab -- yyacceptlab comes here.  |
 `-------------------------------------*/
 yyacceptlab:
 	yyresult = 0;
 	goto yyreturn;
 
 /*-----------------------------------.
-| yyabortlab -- YYABORT comes here.  |
+| yyabortlab -- yyabortlab comes here.  |
 `-----------------------------------*/
 yyabortlab:
 	yyresult = 1;
@@ -795,7 +788,7 @@ yyreturn:
 		yydestruct("Cleanup: discarding lookahead", yytoken, &yylval);
 	}
 	/* Do not reclaim the symbols of the rule whose action triggered
-	   this YYABORT or YYACCEPT.  */
+	   this yyabortlab or yyacceptlab.  */
 	(yyvsp -= (yylen), yyssp -= (yylen));
 	while (yyssp != yyss) {
 		yydestruct("Cleanup: popping", static_cast<yysymbol_kind_t>(yystos[+*yyssp]), yyvsp);
@@ -807,11 +800,11 @@ yyreturn:
 }
 
 struct keywords {
-	const char* k_name;
+	char const* k_name;
 	int k_val;
 };
 
-int yyerror(const char* fmt, ...)
+int yyerror(char const* fmt, ...)
 {
 	va_list ap;
 
@@ -826,7 +819,7 @@ int yyerror(const char* fmt, ...)
 
 int kw_cmp(const void* k, const void* e)
 {
-	return (strcmp((const char*)k, ((const struct keywords*)e)->k_name));
+	return (strcmp((char const*)k, ((const struct keywords*)e)->k_name));
 }
 
 int lookup(char* s)
@@ -876,7 +869,7 @@ static constexpr std::size_t MAXPUSHBACK {128};
 char* parsebuf;
 int parseindex;
 char pushback_buffer[MAXPUSHBACK];
-int pushback_index = 0;
+std::size_t pushback_index {0};
 
 int lgetc(int quotec)
 {
@@ -1017,7 +1010,7 @@ int yylex()
 		lungetc(c);
 		if (p == buf + 1 && buf[0] == '-') goto nodigits;
 		if (c == EOF || (isspace(c) || c == ')' || c == ',' || c == '/' || c == '}' || c == '=')) {
-			const char* errstr = nullptr;
+			char const* errstr = nullptr;
 
 			*p = '\0';
 			yylval.v.number = strtonum(buf, LLONG_MIN, LLONG_MAX, &errstr);
@@ -1058,7 +1051,7 @@ nodigits:
 	return (c);
 }
 
-struct file* pushfile(const char* name, FILE* stream)
+struct file* pushfile(char const* name, FILE* stream)
 {
 	struct file* nfile;
 
@@ -1084,12 +1077,12 @@ int popfile()
 	return (file ? 0 : EOF);
 }
 
-int parse_config(const char* filename, struct Conf* xconf)
+int parse_config(char const* filename, struct Conf* xconf)
 {
 	FILE* stream;
 	int errors = 0;
 
-	conf = xconf;
+	config = xconf;
 
 	stream = fopen(filename, "r");
 	if (stream == nullptr) {

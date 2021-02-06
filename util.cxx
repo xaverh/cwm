@@ -31,7 +31,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static void log_msg(const char*, va_list);
+static void log_msg(char const*, va_list);
 
 void u_spawn(char* argstr)
 {
@@ -94,7 +94,7 @@ char* u_argv(char* const* argv)
 	return p;
 }
 
-static void log_msg(const char* msg, va_list ap)
+static void log_msg(char const* msg, va_list ap)
 {
 	char* fmt;
 
@@ -108,12 +108,12 @@ static void log_msg(const char* msg, va_list ap)
 	fflush(stderr);
 }
 
-void log_debug(int level, const char* func, const char* msg, ...)
+void log_debug(int level, char const* func, char const* msg, ...)
 {
 	char* fmt;
 	va_list ap;
 
-	if (Conf.debug < level) return;
+	if (conf.debug < level) return;
 
 	va_start(ap, msg);
 	xasprintf(&fmt, "debug%d: %s: %s", level, func, msg);

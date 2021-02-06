@@ -80,7 +80,7 @@ int xu_get_strprop(Window win, Atom atm, char** text)
 			XTextProperty prop2;
 			if (Xutf8TextListToTextProperty(X_Dpy, list, nitems, XUTF8StringStyle, &prop2)
 			    == Success) {
-				*text = xstrdup((const char*)prop2.value);
+				*text = xstrdup((char const*)prop2.value);
 				XFree(prop2.value);
 			}
 		} else {
@@ -121,17 +121,17 @@ void xu_get_wm_state(Window win, long* state)
 
 void xu_set_wm_state(Window win, long state)
 {
-	long data[] = {state, None};
-
+	long const data[] {state, None};
 	XChangeProperty(X_Dpy,
 	                win,
 	                cwmh[WM_STATE],
 	                cwmh[WM_STATE],
 	                32,
 	                PropModeReplace,
-	                (unsigned char*)data,
+	                reinterpret_cast<unsigned char const*>(data),
 	                2);
 }
+
 void xu_xorcolor(XftColor a, XftColor b, XftColor* r)
 {
 	r->pixel = a.pixel ^ b.pixel;
@@ -141,9 +141,9 @@ void xu_xorcolor(XftColor a, XftColor b, XftColor* r)
 	r->color.alpha = 0xffff;
 }
 
-void xu_atom_init(void)
+void xu_atom_init()
 {
-	char const* cwmhints[] = {
+	constexpr static char const* cwmhints[] {
 	    "WM_STATE",
 	    "WM_DELETE_WINDOW",
 	    "WM_TAKE_FOCUS",
@@ -152,7 +152,8 @@ void xu_atom_init(void)
 	    "UTF8_STRING",
 	    "WM_CHANGE_STATE",
 	};
-	char const* ewmhints[] = {
+
+	constexpr static char const* ewmhints[] = {
 	    "_NET_SUPPORTED",
 	    "_NET_SUPPORTING_WM_CHECK",
 	    "_NET_ACTIVE_WINDOW",
@@ -181,12 +182,12 @@ void xu_atom_init(void)
 	    "_CWM_WM_STATE_FREEZE",
 	};
 
-	XInternAtoms(X_Dpy, const_cast<char**>(cwmhints), nitems(cwmhints), False, cwmh);
-	XInternAtoms(X_Dpy, const_cast<char**>(ewmhints), nitems(ewmhints), False, ewmh);
+	XInternAtoms(X_Dpy, const_cast<char**>(cwmhints), nitems(cwmhints), False, cwmh.data());
+	XInternAtoms(X_Dpy, const_cast<char**>(ewmhints), nitems(ewmhints), False, ewmh.data());
 }
 
 /* Root Window Properties */
-void xu_ewmh_net_supported(struct screen_ctx* sc)
+void xu_ewmh_net_supported(Screen_ctx* sc)
 {
 	XChangeProperty(X_Dpy,
 	                sc->rootwin,
@@ -194,11 +195,11 @@ void xu_ewmh_net_supported(struct screen_ctx* sc)
 	                XA_ATOM,
 	                32,
 	                PropModeReplace,
-	                (unsigned char*)ewmh,
+	                (unsigned char*)ewmh.data(),
 	                EWMH_NITEMS);
 }
 
-void xu_ewmh_net_supported_wm_check(struct screen_ctx* sc)
+void xu_ewmh_net_supported_wm_check(Screen_ctx* sc)
 {
 	Window w;
 
@@ -225,28 +226,26 @@ void xu_ewmh_net_supported_wm_check(struct screen_ctx* sc)
 	                cwmh[UTF8_STRING],
 	                8,
 	                PropModeReplace,
-	                (unsigned char*)Conf.wmname,
-	                strlen(Conf.wmname));
+	                (unsigned char*)conf.wmname,
+	                strlen(conf.wmname));
 }
 
-void xu_ewmh_net_desktop_geometry(struct screen_ctx* sc)
+void xu_ewmh_net_desktop_geometry(Screen_ctx* sc)
 {
-	long geom[2] = {sc->view.w, sc->view.h};
-
+	long const geom[2] = {sc->view.w, sc->view.h};
 	XChangeProperty(X_Dpy,
 	                sc->rootwin,
 	                ewmh[_NET_DESKTOP_GEOMETRY],
 	                XA_CARDINAL,
 	                32,
 	                PropModeReplace,
-	                (unsigned char*)geom,
+	                reinterpret_cast<unsigned char const*>(geom),
 	                2);
 }
 
-void xu_ewmh_net_desktop_viewport(struct screen_ctx* sc)
+void xu_ewmh_net_desktop_viewport(Screen_ctx* sc)
 {
-	long viewports[2] = {0, 0};
-
+	static constexpr long viewports[] {0, 0};
 	/* We don't support large desktops, so this is (0, 0). */
 	XChangeProperty(X_Dpy,
 	                sc->rootwin,
@@ -254,14 +253,14 @@ void xu_ewmh_net_desktop_viewport(struct screen_ctx* sc)
 	                XA_CARDINAL,
 	                32,
 	                PropModeReplace,
-	                (unsigned char*)viewports,
+	                reinterpret_cast<unsigned char const*>(viewports),
 	                2);
 }
 
-void xu_ewmh_net_workarea(struct screen_ctx* sc)
+void xu_ewmh_net_workarea(Screen_ctx* sc)
 {
 	unsigned long* workarea;
-	int i, ngroups = Conf.ngroups;
+	int i, ngroups = conf.ngroups;
 
 	workarea = (unsigned long*)xreallocarray(nullptr, ngroups * 4, sizeof(unsigned long));
 	for (i = 0; i < ngroups; i++) {
@@ -281,9 +280,9 @@ void xu_ewmh_net_workarea(struct screen_ctx* sc)
 	free(workarea);
 }
 
-void xu_ewmh_net_client_list(struct screen_ctx* sc)
+void xu_ewmh_net_client_list(Screen_ctx* sc)
 {
-	struct client_ctx* cc;
+	Client_ctx* cc;
 	Window* winlist;
 	int i = 0, j = 0;
 
@@ -305,9 +304,9 @@ void xu_ewmh_net_client_list(struct screen_ctx* sc)
 	free(winlist);
 }
 
-void xu_ewmh_net_client_list_stacking(struct screen_ctx* sc)
+void xu_ewmh_net_client_list_stacking(Screen_ctx* sc)
 {
-	struct client_ctx* cc;
+	Client_ctx* cc;
 	Window* winlist;
 	int i = 0, j;
 
@@ -330,7 +329,7 @@ void xu_ewmh_net_client_list_stacking(struct screen_ctx* sc)
 	free(winlist);
 }
 
-void xu_ewmh_net_active_window(struct screen_ctx* sc, Window w)
+void xu_ewmh_net_active_window(Screen_ctx* sc, Window w)
 {
 	XChangeProperty(X_Dpy,
 	                sc->rootwin,
@@ -342,9 +341,9 @@ void xu_ewmh_net_active_window(struct screen_ctx* sc, Window w)
 	                1);
 }
 
-void xu_ewmh_net_number_of_desktops(struct screen_ctx* sc)
+void xu_ewmh_net_number_of_desktops(Screen_ctx* sc)
 {
-	long ndesks = Conf.ngroups;
+	long ndesks = conf.ngroups;
 
 	XChangeProperty(X_Dpy,
 	                sc->rootwin,
@@ -356,7 +355,7 @@ void xu_ewmh_net_number_of_desktops(struct screen_ctx* sc)
 	                1);
 }
 
-void xu_ewmh_net_showing_desktop(struct screen_ctx* sc)
+void xu_ewmh_net_showing_desktop(Screen_ctx* sc)
 {
 	long zero = 0;
 
@@ -374,13 +373,13 @@ void xu_ewmh_net_showing_desktop(struct screen_ctx* sc)
 	                1);
 }
 
-void xu_ewmh_net_virtual_roots(struct screen_ctx* sc)
+void xu_ewmh_net_virtual_roots(Screen_ctx* sc)
 {
 	/* We don't support virtual roots, so delete if set by previous wm. */
 	XDeleteProperty(X_Dpy, sc->rootwin, ewmh[_NET_VIRTUAL_ROOTS]);
 }
 
-void xu_ewmh_net_current_desktop(struct screen_ctx* sc)
+void xu_ewmh_net_current_desktop(Screen_ctx* sc)
 {
 	long num = sc->group_active->num;
 
@@ -394,9 +393,9 @@ void xu_ewmh_net_current_desktop(struct screen_ctx* sc)
 	                1);
 }
 
-void xu_ewmh_net_desktop_names(struct screen_ctx* sc)
+void xu_ewmh_net_desktop_names(Screen_ctx* sc)
 {
-	struct group_ctx* gc;
+	Group_ctx* gc;
 	char *p, *q;
 	unsigned char* prop_ret;
 	int i = 0, j = 0, nstrings = 0, n = 0;
@@ -456,7 +455,7 @@ void xu_ewmh_net_desktop_names(struct screen_ctx* sc)
 }
 
 /* Application Window Properties */
-int xu_ewmh_get_net_wm_desktop(struct client_ctx* cc, long* n)
+int xu_ewmh_get_net_wm_desktop(Client_ctx* cc, long* n)
 {
 	long* p;
 
@@ -467,7 +466,7 @@ int xu_ewmh_get_net_wm_desktop(struct client_ctx* cc, long* n)
 	return 1;
 }
 
-void xu_ewmh_set_net_wm_desktop(struct client_ctx* cc)
+void xu_ewmh_set_net_wm_desktop(Client_ctx* cc)
 {
 	long num = 0xffffffff;
 
@@ -483,7 +482,7 @@ void xu_ewmh_set_net_wm_desktop(struct client_ctx* cc)
 	                1);
 }
 
-Atom* xu_ewmh_get_net_wm_state(struct client_ctx* cc, int* n)
+Atom* xu_ewmh_get_net_wm_state(Client_ctx* cc, int* n)
 {
 	Atom *state, *p = nullptr;
 
@@ -497,13 +496,12 @@ Atom* xu_ewmh_get_net_wm_state(struct client_ctx* cc, int* n)
 	return state;
 }
 
-void xu_ewmh_handle_net_wm_state_msg(struct client_ctx* cc, int action, Atom first, Atom second)
+void xu_ewmh_handle_net_wm_state_msg(Client_ctx* cc, int action, Atom first, Atom second)
 {
-	unsigned int i;
-	struct handlers {
-		Atom atom;
-		int flag;
-		void (*toggle)(struct client_ctx*);
+	constexpr struct handlers {
+		Atom const atom;
+		unsigned const flag;
+		void (*const toggle)(Client_ctx*);
 	} handlers[] = {
 	    {_NET_WM_STATE_STICKY, CLIENT_STICKY, client_toggle_sticky},
 	    {_NET_WM_STATE_MAXIMIZED_VERT, CLIENT_VMAXIMIZED, client_toggle_vmaximize},
@@ -516,21 +514,21 @@ void xu_ewmh_handle_net_wm_state_msg(struct client_ctx* cc, int action, Atom fir
 	    {_CWM_WM_STATE_FREEZE, CLIENT_FREEZE, client_toggle_freeze},
 	};
 
-	for (i = 0; i < nitems(handlers); i++) {
-		if (first != ewmh[handlers[i].atom] && second != ewmh[handlers[i].atom]) continue;
+	for (auto const& h : handlers) {
+		if (first != ewmh[h.atom] && second != ewmh[h.atom]) continue;
 		switch (action) {
 		case _NET_WM_STATE_ADD:
-			if (!(cc->flags & handlers[i].flag)) handlers[i].toggle(cc);
+			if (!(cc->flags & h.flag)) h.toggle(cc);
 			break;
 		case _NET_WM_STATE_REMOVE:
-			if (cc->flags & handlers[i].flag) handlers[i].toggle(cc);
+			if (cc->flags & h.flag) h.toggle(cc);
 			break;
-		case _NET_WM_STATE_TOGGLE: handlers[i].toggle(cc);
+		case _NET_WM_STATE_TOGGLE: h.toggle(cc);
 		}
 	}
 }
 
-void xu_ewmh_restore_net_wm_state(struct client_ctx* cc)
+void xu_ewmh_restore_net_wm_state(Client_ctx* cc)
 {
 	Atom* atoms;
 	int i, n;
@@ -550,7 +548,7 @@ void xu_ewmh_restore_net_wm_state(struct client_ctx* cc)
 	free(atoms);
 }
 
-void xu_ewmh_set_net_wm_state(struct client_ctx* cc)
+void xu_ewmh_set_net_wm_state(Client_ctx* cc)
 {
 	Atom *atoms, *oatoms;
 	int n, i, j;

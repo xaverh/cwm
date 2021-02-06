@@ -35,6 +35,7 @@
 #include <err.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <cstdint>
 
 static void xev_handle_maprequest(XEvent*);
 static void xev_handle_unmapnotify(XEvent*);
@@ -65,7 +66,6 @@ static void xev_handle_expose(XEvent*);
 // *xev_handlers[ClientMessage] = xev_handle_clientmessage;
 // *xev_handlers[MappingNotify] = xev_handle_mappingnotify;
 // *xev_handlers[Expose] = xev_handle_expose;
-
 
 void (*xev_handlers[LASTEvent])(XEvent*) = {nullptr,
                                             nullptr,
@@ -110,8 +110,8 @@ static KeySym modkeys[]
 static void xev_handle_maprequest(XEvent* ee)
 {
 	XMapRequestEvent* e = &ee->xmaprequest;
-	struct screen_ctx* sc;
-	struct client_ctx *cc, *old_cc;
+	Screen_ctx* sc;
+	Client_ctx *cc, *old_cc;
 
 	log_debug(3, __func__, "parent: 0x%lx window: 0x%lx", e->parent, e->window);
 
@@ -127,7 +127,7 @@ static void xev_handle_maprequest(XEvent* ee)
 static void xev_handle_unmapnotify(XEvent* ee)
 {
 	XUnmapEvent* e = &ee->xunmap;
-	struct client_ctx* cc;
+	Client_ctx* cc;
 
 	log_debug(3, __func__, "window: 0x%lx", e->window);
 
@@ -143,7 +143,7 @@ static void xev_handle_unmapnotify(XEvent* ee)
 static void xev_handle_destroynotify(XEvent* ee)
 {
 	XDestroyWindowEvent* e = &ee->xdestroywindow;
-	struct client_ctx* cc;
+	Client_ctx* cc;
 
 	log_debug(3, __func__, "window: 0x%lx", e->window);
 
@@ -153,8 +153,8 @@ static void xev_handle_destroynotify(XEvent* ee)
 static void xev_handle_configurerequest(XEvent* ee)
 {
 	XConfigureRequestEvent* e = &ee->xconfigurerequest;
-	struct client_ctx* cc;
-	struct screen_ctx* sc;
+	Client_ctx* cc;
+	Screen_ctx* sc;
 	XWindowChanges wc;
 
 	log_debug(3, __func__, "window: 0x%lx", e->window);
@@ -199,8 +199,8 @@ static void xev_handle_configurerequest(XEvent* ee)
 static void xev_handle_propertynotify(XEvent* ee)
 {
 	XPropertyEvent* e = &ee->xproperty;
-	struct screen_ctx* sc;
-	struct client_ctx* cc;
+	Screen_ctx* sc;
+	Client_ctx* cc;
 
 	log_debug(3, __func__, "window: 0x%lx", e->window);
 
@@ -231,7 +231,7 @@ static void xev_handle_propertynotify(XEvent* ee)
 static void xev_handle_enternotify(XEvent* ee)
 {
 	XCrossingEvent* e = &ee->xcrossing;
-	struct client_ctx* cc;
+	Client_ctx* cc;
 
 	log_debug(3, __func__, "window: 0x%lx", e->window);
 
@@ -243,9 +243,9 @@ static void xev_handle_enternotify(XEvent* ee)
 static void xev_handle_buttonpress(XEvent* ee)
 {
 	XButtonEvent* e = &ee->xbutton;
-	struct client_ctx* cc;
-	struct screen_ctx* sc;
-	struct bind_ctx* mb;
+	Client_ctx* cc;
+	Screen_ctx* sc;
+	Bind_ctx* mb;
 
 	log_debug(3,
 	          __func__,
@@ -258,27 +258,27 @@ static void xev_handle_buttonpress(XEvent* ee)
 
 	e->state &= ~IGNOREMODMASK;
 
-	TAILQ_FOREACH(mb, &Conf.mousebindq, entry)
+	TAILQ_FOREACH(mb, &conf.mousebindq, entry)
 	{
 		if (e->button == mb->press.button && e->state == mb->modmask) break;
 	}
 	if (mb == nullptr) return;
 	mb->cargs->xev = cwm::Xev::btn;
 	switch (mb->context) {
-	case CWM_CONTEXT_CC:
+	case Context::cc:
 		if (((cc = client_find(e->window)) == nullptr) && ((cc = client_current(sc)) == nullptr))
 			return;
 		(*mb->callback)(cc, mb->cargs);
 		break;
-	case CWM_CONTEXT_SC: (*mb->callback)(sc, mb->cargs); break;
-	case CWM_CONTEXT_NONE: (*mb->callback)(nullptr, mb->cargs); break;
+	case Context::sc: (*mb->callback)(sc, mb->cargs); break;
+	case Context::none: (*mb->callback)(nullptr, mb->cargs); break;
 	}
 }
 
 static void xev_handle_buttonrelease(XEvent* ee)
 {
 	XButtonEvent* e = &ee->xbutton;
-	struct client_ctx* cc;
+	Client_ctx* cc;
 
 	log_debug(3,
 	          __func__,
@@ -298,9 +298,9 @@ static void xev_handle_buttonrelease(XEvent* ee)
 static void xev_handle_keypress(XEvent* ee)
 {
 	XKeyEvent* e = &ee->xkey;
-	struct client_ctx* cc;
-	struct screen_ctx* sc;
-	struct bind_ctx* kb;
+	Client_ctx* cc;
+	Screen_ctx* sc;
+	Bind_ctx* kb;
 	KeySym keysym, skeysym;
 	unsigned int modshift;
 
@@ -318,7 +318,7 @@ static void xev_handle_keypress(XEvent* ee)
 
 	e->state &= ~IGNOREMODMASK;
 
-	TAILQ_FOREACH(kb, &Conf.keybindq, entry)
+	TAILQ_FOREACH(kb, &conf.keybindq, entry)
 	{
 		if (keysym != kb->press.keysym && skeysym == kb->press.keysym)
 			modshift = ShiftMask;
@@ -332,13 +332,13 @@ static void xev_handle_keypress(XEvent* ee)
 	if (kb == nullptr) return;
 	kb->cargs->xev = cwm::Xev::key;
 	switch (kb->context) {
-	case CWM_CONTEXT_CC:
+	case Context::cc:
 		if (((cc = client_find(e->subwindow)) == nullptr) && ((cc = client_current(sc)) == nullptr))
 			return;
 		(*kb->callback)(cc, kb->cargs);
 		break;
-	case CWM_CONTEXT_SC: (*kb->callback)(sc, kb->cargs); break;
-	case CWM_CONTEXT_NONE: (*kb->callback)(NULL, kb->cargs); break;
+	case Context::sc: (*kb->callback)(sc, kb->cargs); break;
+	case Context::none: (*kb->callback)(nullptr, kb->cargs); break;
 	}
 }
 
@@ -348,8 +348,8 @@ static void xev_handle_keypress(XEvent* ee)
 static void xev_handle_keyrelease(XEvent* ee)
 {
 	XKeyEvent* e = &ee->xkey;
-	struct screen_ctx* sc;
-	struct client_ctx* cc;
+	Screen_ctx* sc;
+	Client_ctx* cc;
 	KeySym keysym;
 	unsigned int i;
 
@@ -384,8 +384,8 @@ static void xev_handle_keyrelease(XEvent* ee)
 static void xev_handle_clientmessage(XEvent* ee)
 {
 	XClientMessageEvent* e = &ee->xclient;
-	struct client_ctx *cc, *old_cc;
-	struct screen_ctx* sc;
+	Client_ctx *cc, *old_cc;
+	Screen_ctx* sc;
 
 	log_debug(3, __func__, "window: 0x%lx", e->window);
 
@@ -405,12 +405,12 @@ static void xev_handle_clientmessage(XEvent* ee)
 		if ((cc = client_find(e->window)) != nullptr) {
 			/*
 			 * The EWMH spec states that if the cardinal returned
-			 * is 0xFFFFFFFF (-1) then the window should appear
+			 * is 0xFFFFFFFF (UINT64_MAX) then the window should appear
 			 * on all desktops, in our case, group 0.
 			 */
-			if (e->data.l[0] == (unsigned long)-1)
+			if (e->data.l[0] == UINT64_MAX)
 				group_movetogroup(cc, 0);
-			else if (e->data.l[0] >= 0 && e->data.l[0] < Conf.ngroups)
+			else if (e->data.l[0] >= 0 && e->data.l[0] < conf.ngroups)
 				group_movetogroup(cc, e->data.l[0]);
 		}
 	} else if (e->message_type == ewmh[_NET_WM_STATE]) {
@@ -419,7 +419,7 @@ static void xev_handle_clientmessage(XEvent* ee)
 		}
 	} else if (e->message_type == ewmh[_NET_CURRENT_DESKTOP]) {
 		if ((sc = screen_find(e->window)) != nullptr) {
-			if (e->data.l[0] >= 0 && e->data.l[0] < Conf.ngroups) group_only(sc, e->data.l[0]);
+			if (e->data.l[0] >= 0 && e->data.l[0] < conf.ngroups) group_only(sc, e->data.l[0]);
 		}
 	}
 }
@@ -427,7 +427,7 @@ static void xev_handle_clientmessage(XEvent* ee)
 static void xev_handle_randr(XEvent* ee)
 {
 	XRRScreenChangeNotifyEvent* e = (XRRScreenChangeNotifyEvent*)ee;
-	struct screen_ctx* sc;
+	Screen_ctx* sc;
 
 	log_debug(3, __func__, "size: %d/%d", e->width, e->height);
 
@@ -445,7 +445,7 @@ static void xev_handle_randr(XEvent* ee)
 static void xev_handle_mappingnotify(XEvent* ee)
 {
 	XMappingEvent* e = &ee->xmapping;
-	struct screen_ctx* sc;
+	Screen_ctx* sc;
 
 	log_debug(3, __func__, "window: 0x%lx", e->window);
 
@@ -459,20 +459,20 @@ static void xev_handle_mappingnotify(XEvent* ee)
 static void xev_handle_expose(XEvent* ee)
 {
 	XExposeEvent* e = &ee->xexpose;
-	struct client_ctx* cc;
+	Client_ctx* cc;
 
 	log_debug(3, __func__, "window: 0x%lx", e->window);
 
 	if ((cc = client_find(e->window)) != nullptr && e->count == 0) client_draw_border(cc);
 }
 
-void xev_process(void)
+void xev_process()
 {
 	XEvent e;
 
 	while (XPending(X_Dpy)) {
 		XNextEvent(X_Dpy, &e);
-		if ((e.type - Conf.xrandr_event_base) == RRScreenChangeNotify)
+		if ((e.type - conf.xrandr_event_base) == RRScreenChangeNotify)
 			xev_handle_randr(&e);
 		else if ((e.type < LASTEvent) && (xev_handlers[e.type] != nullptr))
 			(*xev_handlers[e.type])(&e);

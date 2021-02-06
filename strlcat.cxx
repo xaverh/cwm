@@ -32,10 +32,10 @@
  * Returns strlen(src) + std::min(dsize, strlen(initial dst)).
  * If retval >= siz, truncation occurred.
  */
-size_t strlcat(char* dst, const char* src, size_t dsize)
+size_t strlcat(char* dst, char const* src, size_t dsize)
 {
-	const char* odst = dst;
-	const char* osrc = src;
+	char const* odst = dst;
+	char const* osrc = src;
 	size_t n = dsize;
 	size_t dlen;
 

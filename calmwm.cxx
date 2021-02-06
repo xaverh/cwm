@@ -22,6 +22,8 @@
 
 #include "queue.hxx"
 
+#include <array>
+#include <atomic>
 #include <cerrno>
 #include <climits>
 #include <clocale>
@@ -38,42 +40,41 @@
 
 Display* X_Dpy;
 Time Last_Event_Time = CurrentTime;
-Atom cwmh[CWMH_NITEMS];
-Atom ewmh[EWMH_NITEMS];
-struct screen_q Screenq = TAILQ_HEAD_INITIALIZER(Screenq);
-struct Conf Conf;
-volatile sig_atomic_t cwm_status;
+std::array<Atom, CWMH_NITEMS> cwmh;
+std::array<Atom, EWMH_NITEMS> ewmh;
+screen_q Screenq = TAILQ_HEAD_INITIALIZER(Screenq);
+struct Conf conf;
+std::atomic<int> cwm_status;
 
-void usage(void);
 static void sighdlr(int);
 static int x_errorhandler(Display*, XErrorEvent*);
-static int x_init(const char*);
-static void x_teardown(void);
+static int x_init(char const*);
+static void x_teardown();
 static int x_wmerrorhandler(Display*, XErrorEvent*);
 
 int main(int argc, char** argv)
 {
-	char* display_name = nullptr;
+	char const* display_name = nullptr;
 	char* fallback;
 	int ch, xfd, nflag = 0;
-	struct pollfd pfd[1];
+	pollfd pfd[1];
 
 	if (!setlocale(LC_CTYPE, "") || !XSupportsLocale()) warnx("no locale support");
 	mbtowc(nullptr, nullptr, MB_CUR_MAX);
 
-	conf_init(&Conf);
+	conf_init(&conf);
 
 	fallback = u_argv(argv);
-	Conf.wm_argv = u_argv(argv);
+	conf.wm_argv = u_argv(argv);
 	while ((ch = getopt(argc, argv, "c:d:nv")) != -1) {
 		switch (ch) {
 		case 'c':
-			free(Conf.conf_file);
-			Conf.conf_file = xstrdup(optarg);
+			free(conf.conf_file);
+			conf.conf_file = xstrdup(optarg);
 			break;
 		case 'd': display_name = optarg; break;
 		case 'n': nflag = 1; break;
-		case 'v': Conf.debug++; break;
+		case 'v': conf.debug++; break;
 		default: usage();
 		}
 	}
@@ -84,35 +85,35 @@ int main(int argc, char** argv)
 	    || signal(SIGINT, sighdlr) == SIG_ERR || signal(SIGTERM, sighdlr) == SIG_ERR)
 		err(1, "signal");
 
-	if (parse_config(Conf.conf_file, &Conf) == -1) {
+	if (parse_config(conf.conf_file, &conf) == -1) {
 		warnx("error parsing config file");
 		if (nflag) return 1;
 	}
 	if (nflag) return 0;
 
 	xfd = x_init(display_name);
-	cwm_status = CWM_RUNNING;
+	cwm_status = Cwm_status::CWM_RUNNING;
 
 	memset(&pfd, 0, sizeof(pfd));
 	pfd[0].fd = xfd;
 	pfd[0].events = POLLIN;
-	while (cwm_status == CWM_RUNNING) {
+	while (cwm_status == Cwm_status::CWM_RUNNING) {
 		xev_process();
 		if (poll(pfd, 1, -1) == -1) {
 			if (errno != EINTR) warn("poll");
 		}
 	}
 	x_teardown();
-	if (cwm_status == CWM_EXEC_WM) {
-		u_exec(Conf.wm_argv);
-		warnx("'%s' failed to start, starting fallback", Conf.wm_argv);
+	if (cwm_status == Cwm_status::CWM_EXEC_WM) {
+		u_exec(conf.wm_argv);
+		warnx("'%s' failed to start, starting fallback", conf.wm_argv);
 		u_exec(fallback);
 	}
 
 	return 0;
 }
 
-static int x_init(const char* dpyname)
+static int x_init(char const* dpyname)
 {
 	int i;
 
@@ -124,22 +125,22 @@ static int x_init(const char* dpyname)
 	XSync(X_Dpy, False);
 	XSetErrorHandler(x_errorhandler);
 
-	Conf.xrandr = XRRQueryExtension(X_Dpy, &Conf.xrandr_event_base, &i);
+	conf.xrandr = XRRQueryExtension(X_Dpy, &conf.xrandr_event_base, &i);
 
 	xu_atom_init();
-	conf_cursor(&Conf);
+	conf_cursor(&conf);
 
-	for (i = 0; i < ScreenCount(X_Dpy); i++) screen_init(i);
+	for (auto i = 0; i < ScreenCount(X_Dpy); ++i) screen_init(i);
 
 	return ConnectionNumber(X_Dpy);
 }
 
-static void x_teardown(void)
+static void x_teardown()
 {
-	struct screen_ctx* sc;
+	Screen_ctx* sc;
 	unsigned int i;
 
-	conf_clear(&Conf);
+	conf_clear(&conf);
 
 	TAILQ_FOREACH(sc, &Screenq, entry)
 	{
@@ -153,19 +154,19 @@ static void x_teardown(void)
 	}
 	XUngrabPointer(X_Dpy, CurrentTime);
 	XUngrabKeyboard(X_Dpy, CurrentTime);
-	for (i = 0; i < CF_NITEMS; i++) XFreeCursor(X_Dpy, Conf.cursor[i]);
+	for (auto& c : conf.cursor) XFreeCursor(X_Dpy, c);
 	XSync(X_Dpy, False);
 	XSetInputFocus(X_Dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XCloseDisplay(X_Dpy);
 }
 
-static int x_wmerrorhandler(Display* dpy, XErrorEvent* e)
+static int x_wmerrorhandler([[maybe_unused]] Display* dpy, [[maybe_unused]] XErrorEvent* e)
 {
 	errx(1, "root window unavailable - perhaps another wm is running?");
 	return 0;
 }
 
-static int x_errorhandler(Display* dpy, XErrorEvent* e)
+static int x_errorhandler([[maybe_unused]] Display* dpy, [[maybe_unused]] XErrorEvent* e)
 {
 #ifdef DEBUG
 	char msg[80], number[80], req[80];
@@ -190,18 +191,18 @@ static void sighdlr(int sig)
 		while ((pid = waitpid(-1, &status, WNOHANG)) > 0 || (pid < 0 && errno == EINTR))
 			;
 		break;
-	case SIGHUP: cwm_status = CWM_EXEC_WM; break;
-	case SIGINT:
-	case SIGTERM: cwm_status = CWM_QUIT; break;
+	case SIGHUP: cwm_status = Cwm_status::CWM_EXEC_WM; break;
+	case SIGINT: [[fallthrough]];
+	case SIGTERM: cwm_status = Cwm_status::CWM_QUIT; break;
 	}
 
 	errno = save_errno;
 }
 
-void usage(void)
+void usage()
 {
 	extern char* __progname;
 
-	(void)fprintf(stderr, "usage: %s [-nv] [-c file] [-d display]\n", __progname);
+	fprintf(stderr, "usage: %s [-nv] [-c file] [-d display]\n", __progname);
 	exit(1);
 }

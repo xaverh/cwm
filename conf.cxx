@@ -31,13 +31,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static const char* conf_bind_mask(const char*, unsigned int*);
-static void conf_unbind_key(struct Conf*, struct bind_ctx*);
-static void conf_unbind_mouse(struct Conf*, struct bind_ctx*);
+static char const* conf_bind_mask(char const*, unsigned int*);
+static void conf_unbind_key(struct Conf*, Bind_ctx*);
+static void conf_unbind_mouse(struct Conf*, Bind_ctx*);
 
-static const struct {
+static constexpr struct {
 	int num;
-	const char* name;
+	char const* name;
 } group_binds[] = {
     {0, "nogroup"},
     {1, "one"},
@@ -50,144 +50,148 @@ static const struct {
     {8, "eight"},
     {9, "nine"},
 };
-static int cursor_binds[] = {
-    XC_left_ptr,            /* CF_NORMAL */
-    XC_fleur,               /* CF_MOVE */
-    XC_bottom_right_corner, /* CF_RESIZE */
-    XC_question_arrow,      /* CF_QUESTION */
+
+static constexpr int cursor_binds[] = {
+    XC_left_ptr,            // CF_NORMAL
+    XC_fleur,               // CF_MOVE
+    XC_bottom_right_corner, // CF_RESIZE
+    XC_question_arrow,      // CF_QUESTION
 };
-static const char* color_binds[] = {
-    "#CCCCCC", /* CWM_COLOR_BORDER_ACTIVE */
-    "#666666", /* CWM_COLOR_BORDER_INACTIVE */
-    "#FC8814", /* CWM_COLOR_BORDER_URGENCY */
-    "blue",    /* CWM_COLOR_BORDER_GROUP */
-    "red",     /* CWM_COLOR_BORDER_UNGROUP */
-    "black",   /* CWM_COLOR_MENU_FG */
-    "white",   /* CWM_COLOR_MENU_BG */
-    "black",   /* CWM_COLOR_MENU_FONT */
-    "",        /* CWM_COLOR_MENU_FONT_SEL */
+
+static constexpr char const* color_binds[] = {
+    "#CCCCCC", // CWM_COLOR_BORDER_ACTIVE
+    "#666666", // CWM_COLOR_BORDER_INACTIVE
+    "#FC8814", // CWM_COLOR_BORDER_URGENCY
+    "blue",    // CWM_COLOR_BORDER_GROUP
+    "red",     // CWM_COLOR_BORDER_UNGROUP
+    "black",   // CWM_COLOR_MENU_FG
+    "white",   // CWM_COLOR_MENU_BG
+    "black",   // CWM_COLOR_MENU_FONT
+    "",        // CWM_COLOR_MENU_FONT_SEL
 };
-static const struct {
-	const char* tag;
-	void (*handler)(void*, struct cargs*);
-	enum context context;
-	int flag;
-} name_to_func[] = {
-    {"window-lower", kbfunc_client_lower, CWM_CONTEXT_CC, 0},
-    {"window-raise", kbfunc_client_raise, CWM_CONTEXT_CC, 0},
-    {"window-hide", kbfunc_client_hide, CWM_CONTEXT_CC, 0},
-    {"window-close", kbfunc_client_close, CWM_CONTEXT_CC, 0},
-    {"window-delete", kbfunc_client_close, CWM_CONTEXT_CC, 0},
-    {"window-htile", kbfunc_client_htile, CWM_CONTEXT_CC, 0},
-    {"window-vtile", kbfunc_client_vtile, CWM_CONTEXT_CC, 0},
-    {"window-stick", kbfunc_client_toggle_sticky, CWM_CONTEXT_CC, 0},
-    {"window-fullscreen", kbfunc_client_toggle_fullscreen, CWM_CONTEXT_CC, 0},
-    {"window-maximize", kbfunc_client_toggle_maximize, CWM_CONTEXT_CC, 0},
-    {"window-vmaximize", kbfunc_client_toggle_vmaximize, CWM_CONTEXT_CC, 0},
-    {"window-hmaximize", kbfunc_client_toggle_hmaximize, CWM_CONTEXT_CC, 0},
-    {"window-freeze", kbfunc_client_toggle_freeze, CWM_CONTEXT_CC, 0},
-    {"window-group", kbfunc_client_toggle_group, CWM_CONTEXT_CC, 0},
-    {"window-movetogroup-1", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 1},
-    {"window-movetogroup-2", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 2},
-    {"window-movetogroup-3", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 3},
-    {"window-movetogroup-4", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 4},
-    {"window-movetogroup-5", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 5},
-    {"window-movetogroup-6", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 6},
-    {"window-movetogroup-7", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 7},
-    {"window-movetogroup-8", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 8},
-    {"window-movetogroup-9", kbfunc_client_movetogroup, CWM_CONTEXT_CC, 9},
-    {"window-snap-up", kbfunc_client_snap, CWM_CONTEXT_CC, CWM_UP},
-    {"window-snap-down", kbfunc_client_snap, CWM_CONTEXT_CC, CWM_DOWN},
-    {"window-snap-right", kbfunc_client_snap, CWM_CONTEXT_CC, CWM_RIGHT},
-    {"window-snap-left", kbfunc_client_snap, CWM_CONTEXT_CC, CWM_LEFT},
-    {"window-snap-up-right", kbfunc_client_snap, CWM_CONTEXT_CC, CWM_UP_RIGHT},
-    {"window-snap-up-left", kbfunc_client_snap, CWM_CONTEXT_CC, CWM_UP_LEFT},
-    {"window-snap-down-right", kbfunc_client_snap, CWM_CONTEXT_CC, CWM_DOWN_RIGHT},
-    {"window-snap-down-left", kbfunc_client_snap, CWM_CONTEXT_CC, CWM_DOWN_LEFT},
-    {"window-move", kbfunc_client_move, CWM_CONTEXT_CC, 0},
-    {"window-move-up", kbfunc_client_move, CWM_CONTEXT_CC, CWM_UP},
-    {"window-move-down", kbfunc_client_move, CWM_CONTEXT_CC, CWM_DOWN},
-    {"window-move-right", kbfunc_client_move, CWM_CONTEXT_CC, CWM_RIGHT},
-    {"window-move-left", kbfunc_client_move, CWM_CONTEXT_CC, CWM_LEFT},
-    {"window-move-up-big", kbfunc_client_move, CWM_CONTEXT_CC, CWM_UP_BIG},
-    {"window-move-down-big", kbfunc_client_move, CWM_CONTEXT_CC, CWM_DOWN_BIG},
-    {"window-move-right-big", kbfunc_client_move, CWM_CONTEXT_CC, CWM_RIGHT_BIG},
-    {"window-move-left-big", kbfunc_client_move, CWM_CONTEXT_CC, CWM_LEFT_BIG},
-    {"window-resize", kbfunc_client_resize, CWM_CONTEXT_CC, 0},
-    {"window-resize-up", kbfunc_client_resize, CWM_CONTEXT_CC, CWM_UP},
-    {"window-resize-down", kbfunc_client_resize, CWM_CONTEXT_CC, CWM_DOWN},
-    {"window-resize-right", kbfunc_client_resize, CWM_CONTEXT_CC, CWM_RIGHT},
-    {"window-resize-left", kbfunc_client_resize, CWM_CONTEXT_CC, CWM_LEFT},
-    {"window-resize-up-big", kbfunc_client_resize, CWM_CONTEXT_CC, CWM_UP_BIG},
-    {"window-resize-down-big", kbfunc_client_resize, CWM_CONTEXT_CC, CWM_DOWN_BIG},
-    {"window-resize-right-big", kbfunc_client_resize, CWM_CONTEXT_CC, CWM_RIGHT_BIG},
-    {"window-resize-left-big", kbfunc_client_resize, CWM_CONTEXT_CC, CWM_LEFT_BIG},
-    {"window-menu-label", kbfunc_client_menu_label, CWM_CONTEXT_CC, 0},
-    {"window-cycle", kbfunc_client_cycle, CWM_CONTEXT_SC, CWM_CYCLE_FORWARD},
-    {"window-rcycle", kbfunc_client_cycle, CWM_CONTEXT_SC, CWM_CYCLE_REVERSE},
+
+static constexpr struct {
+	char const* tag;
+	void (*const handler)(void*, Cargs*);
+	Context const context;
+	int const flag;
+} name_to_func[] {
+    {"window-lower", kbfunc_client_lower, Context::cc, 0},
+    {"window-raise", kbfunc_client_raise, Context::cc, 0},
+    {"window-hide", kbfunc_client_hide, Context::cc, 0},
+    {"window-close", kbfunc_client_close, Context::cc, 0},
+    {"window-delete", kbfunc_client_close, Context::cc, 0},
+    {"window-htile", kbfunc_client_htile, Context::cc, 0},
+    {"window-vtile", kbfunc_client_vtile, Context::cc, 0},
+    {"window-stick", kbfunc_client_toggle_sticky, Context::cc, 0},
+    {"window-fullscreen", kbfunc_client_toggle_fullscreen, Context::cc, 0},
+    {"window-maximize", kbfunc_client_toggle_maximize, Context::cc, 0},
+    {"window-vmaximize", kbfunc_client_toggle_vmaximize, Context::cc, 0},
+    {"window-hmaximize", kbfunc_client_toggle_hmaximize, Context::cc, 0},
+    {"window-freeze", kbfunc_client_toggle_freeze, Context::cc, 0},
+    {"window-group", kbfunc_client_toggle_group, Context::cc, 0},
+    {"window-movetogroup-1", kbfunc_client_movetogroup, Context::cc, 1},
+    {"window-movetogroup-2", kbfunc_client_movetogroup, Context::cc, 2},
+    {"window-movetogroup-3", kbfunc_client_movetogroup, Context::cc, 3},
+    {"window-movetogroup-4", kbfunc_client_movetogroup, Context::cc, 4},
+    {"window-movetogroup-5", kbfunc_client_movetogroup, Context::cc, 5},
+    {"window-movetogroup-6", kbfunc_client_movetogroup, Context::cc, 6},
+    {"window-movetogroup-7", kbfunc_client_movetogroup, Context::cc, 7},
+    {"window-movetogroup-8", kbfunc_client_movetogroup, Context::cc, 8},
+    {"window-movetogroup-9", kbfunc_client_movetogroup, Context::cc, 9},
+    {"window-snap-up", kbfunc_client_snap, Context::cc, CWM_UP},
+    {"window-snap-down", kbfunc_client_snap, Context::cc, CWM_DOWN},
+    {"window-snap-right", kbfunc_client_snap, Context::cc, CWM_RIGHT},
+    {"window-snap-left", kbfunc_client_snap, Context::cc, CWM_LEFT},
+    {"window-snap-up-right", kbfunc_client_snap, Context::cc, CWM_UP_RIGHT},
+    {"window-snap-up-left", kbfunc_client_snap, Context::cc, CWM_UP_LEFT},
+    {"window-snap-down-right", kbfunc_client_snap, Context::cc, CWM_DOWN_RIGHT},
+    {"window-snap-down-left", kbfunc_client_snap, Context::cc, CWM_DOWN_LEFT},
+    {"window-move", kbfunc_client_move, Context::cc, 0},
+    {"window-move-up", kbfunc_client_move, Context::cc, CWM_UP},
+    {"window-move-down", kbfunc_client_move, Context::cc, CWM_DOWN},
+    {"window-move-right", kbfunc_client_move, Context::cc, CWM_RIGHT},
+    {"window-move-left", kbfunc_client_move, Context::cc, CWM_LEFT},
+    {"window-move-up-big", kbfunc_client_move, Context::cc, CWM_UP_BIG},
+    {"window-move-down-big", kbfunc_client_move, Context::cc, CWM_DOWN_BIG},
+    {"window-move-right-big", kbfunc_client_move, Context::cc, CWM_RIGHT_BIG},
+    {"window-move-left-big", kbfunc_client_move, Context::cc, CWM_LEFT_BIG},
+    {"window-resize", kbfunc_client_resize, Context::cc, 0},
+    {"window-resize-up", kbfunc_client_resize, Context::cc, CWM_UP},
+    {"window-resize-down", kbfunc_client_resize, Context::cc, CWM_DOWN},
+    {"window-resize-right", kbfunc_client_resize, Context::cc, CWM_RIGHT},
+    {"window-resize-left", kbfunc_client_resize, Context::cc, CWM_LEFT},
+    {"window-resize-up-big", kbfunc_client_resize, Context::cc, CWM_UP_BIG},
+    {"window-resize-down-big", kbfunc_client_resize, Context::cc, CWM_DOWN_BIG},
+    {"window-resize-right-big", kbfunc_client_resize, Context::cc, CWM_RIGHT_BIG},
+    {"window-resize-left-big", kbfunc_client_resize, Context::cc, CWM_LEFT_BIG},
+    {"window-menu-label", kbfunc_client_menu_label, Context::cc, 0},
+    {"window-cycle", kbfunc_client_cycle, Context::sc, CWM_CYCLE_FORWARD},
+    {"window-rcycle", kbfunc_client_cycle, Context::sc, CWM_CYCLE_REVERSE},
     {"window-cycle-ingroup",
      kbfunc_client_cycle,
-     CWM_CONTEXT_SC,
+     Context::sc,
      CWM_CYCLE_FORWARD | CWM_CYCLE_INGROUP},
     {"window-rcycle-ingroup",
      kbfunc_client_cycle,
-     CWM_CONTEXT_SC,
+     Context::sc,
      CWM_CYCLE_REVERSE | CWM_CYCLE_INGROUP},
-    {"group-cycle", kbfunc_group_cycle, CWM_CONTEXT_SC, CWM_CYCLE_FORWARD},
-    {"group-rcycle", kbfunc_group_cycle, CWM_CONTEXT_SC, CWM_CYCLE_REVERSE},
-    {"group-toggle-all", kbfunc_group_toggle_all, CWM_CONTEXT_SC, 0},
-    {"group-toggle-1", kbfunc_group_toggle, CWM_CONTEXT_SC, 1},
-    {"group-toggle-2", kbfunc_group_toggle, CWM_CONTEXT_SC, 2},
-    {"group-toggle-3", kbfunc_group_toggle, CWM_CONTEXT_SC, 3},
-    {"group-toggle-4", kbfunc_group_toggle, CWM_CONTEXT_SC, 4},
-    {"group-toggle-5", kbfunc_group_toggle, CWM_CONTEXT_SC, 5},
-    {"group-toggle-6", kbfunc_group_toggle, CWM_CONTEXT_SC, 6},
-    {"group-toggle-7", kbfunc_group_toggle, CWM_CONTEXT_SC, 7},
-    {"group-toggle-8", kbfunc_group_toggle, CWM_CONTEXT_SC, 8},
-    {"group-toggle-9", kbfunc_group_toggle, CWM_CONTEXT_SC, 9},
-    {"group-only-1", kbfunc_group_only, CWM_CONTEXT_SC, 1},
-    {"group-only-2", kbfunc_group_only, CWM_CONTEXT_SC, 2},
-    {"group-only-3", kbfunc_group_only, CWM_CONTEXT_SC, 3},
-    {"group-only-4", kbfunc_group_only, CWM_CONTEXT_SC, 4},
-    {"group-only-5", kbfunc_group_only, CWM_CONTEXT_SC, 5},
-    {"group-only-6", kbfunc_group_only, CWM_CONTEXT_SC, 6},
-    {"group-only-7", kbfunc_group_only, CWM_CONTEXT_SC, 7},
-    {"group-only-8", kbfunc_group_only, CWM_CONTEXT_SC, 8},
-    {"group-only-9", kbfunc_group_only, CWM_CONTEXT_SC, 9},
-    {"group-close-1", kbfunc_group_close, CWM_CONTEXT_SC, 1},
-    {"group-close-2", kbfunc_group_close, CWM_CONTEXT_SC, 2},
-    {"group-close-3", kbfunc_group_close, CWM_CONTEXT_SC, 3},
-    {"group-close-4", kbfunc_group_close, CWM_CONTEXT_SC, 4},
-    {"group-close-5", kbfunc_group_close, CWM_CONTEXT_SC, 5},
-    {"group-close-6", kbfunc_group_close, CWM_CONTEXT_SC, 6},
-    {"group-close-7", kbfunc_group_close, CWM_CONTEXT_SC, 7},
-    {"group-close-8", kbfunc_group_close, CWM_CONTEXT_SC, 8},
-    {"group-close-9", kbfunc_group_close, CWM_CONTEXT_SC, 9},
-    {"pointer-move-up", kbfunc_ptrmove, CWM_CONTEXT_SC, CWM_UP},
-    {"pointer-move-down", kbfunc_ptrmove, CWM_CONTEXT_SC, CWM_DOWN},
-    {"pointer-move-left", kbfunc_ptrmove, CWM_CONTEXT_SC, CWM_LEFT},
-    {"pointer-move-right", kbfunc_ptrmove, CWM_CONTEXT_SC, CWM_RIGHT},
-    {"pointer-move-up-big", kbfunc_ptrmove, CWM_CONTEXT_SC, CWM_UP_BIG},
-    {"pointer-move-down-big", kbfunc_ptrmove, CWM_CONTEXT_SC, CWM_DOWN_BIG},
-    {"pointer-move-left-big", kbfunc_ptrmove, CWM_CONTEXT_SC, CWM_LEFT_BIG},
-    {"pointer-move-right-big", kbfunc_ptrmove, CWM_CONTEXT_SC, CWM_RIGHT_BIG},
-    {"menu-cmd", kbfunc_menu_cmd, CWM_CONTEXT_SC, 0},
-    {"menu-group", kbfunc_menu_group, CWM_CONTEXT_SC, 0},
-    {"menu-ssh", kbfunc_menu_ssh, CWM_CONTEXT_SC, 0},
-    {"menu-window", kbfunc_menu_client, CWM_CONTEXT_SC, CWM_MENU_WINDOW_ALL},
-    {"menu-window-hidden", kbfunc_menu_client, CWM_CONTEXT_SC, CWM_MENU_WINDOW_HIDDEN},
-    {"menu-exec", kbfunc_menu_exec, CWM_CONTEXT_SC, 0},
-    {"menu-exec-wm", kbfunc_menu_wm, CWM_CONTEXT_SC, 0},
-    {"terminal", kbfunc_exec_term, CWM_CONTEXT_SC, 0},
-    {"lock", kbfunc_exec_lock, CWM_CONTEXT_SC, 0},
-    {"restart", kbfunc_cwm_status, CWM_CONTEXT_SC, CWM_EXEC_WM},
-    {"quit", kbfunc_cwm_status, CWM_CONTEXT_SC, CWM_QUIT},
+    {"group-cycle", kbfunc_group_cycle, Context::sc, CWM_CYCLE_FORWARD},
+    {"group-rcycle", kbfunc_group_cycle, Context::sc, CWM_CYCLE_REVERSE},
+    {"group-toggle-all", kbfunc_group_toggle_all, Context::sc, 0},
+    {"group-toggle-1", kbfunc_group_toggle, Context::sc, 1},
+    {"group-toggle-2", kbfunc_group_toggle, Context::sc, 2},
+    {"group-toggle-3", kbfunc_group_toggle, Context::sc, 3},
+    {"group-toggle-4", kbfunc_group_toggle, Context::sc, 4},
+    {"group-toggle-5", kbfunc_group_toggle, Context::sc, 5},
+    {"group-toggle-6", kbfunc_group_toggle, Context::sc, 6},
+    {"group-toggle-7", kbfunc_group_toggle, Context::sc, 7},
+    {"group-toggle-8", kbfunc_group_toggle, Context::sc, 8},
+    {"group-toggle-9", kbfunc_group_toggle, Context::sc, 9},
+    {"group-only-1", kbfunc_group_only, Context::sc, 1},
+    {"group-only-2", kbfunc_group_only, Context::sc, 2},
+    {"group-only-3", kbfunc_group_only, Context::sc, 3},
+    {"group-only-4", kbfunc_group_only, Context::sc, 4},
+    {"group-only-5", kbfunc_group_only, Context::sc, 5},
+    {"group-only-6", kbfunc_group_only, Context::sc, 6},
+    {"group-only-7", kbfunc_group_only, Context::sc, 7},
+    {"group-only-8", kbfunc_group_only, Context::sc, 8},
+    {"group-only-9", kbfunc_group_only, Context::sc, 9},
+    {"group-close-1", kbfunc_group_close, Context::sc, 1},
+    {"group-close-2", kbfunc_group_close, Context::sc, 2},
+    {"group-close-3", kbfunc_group_close, Context::sc, 3},
+    {"group-close-4", kbfunc_group_close, Context::sc, 4},
+    {"group-close-5", kbfunc_group_close, Context::sc, 5},
+    {"group-close-6", kbfunc_group_close, Context::sc, 6},
+    {"group-close-7", kbfunc_group_close, Context::sc, 7},
+    {"group-close-8", kbfunc_group_close, Context::sc, 8},
+    {"group-close-9", kbfunc_group_close, Context::sc, 9},
+    {"pointer-move-up", kbfunc_ptrmove, Context::sc, CWM_UP},
+    {"pointer-move-down", kbfunc_ptrmove, Context::sc, CWM_DOWN},
+    {"pointer-move-left", kbfunc_ptrmove, Context::sc, CWM_LEFT},
+    {"pointer-move-right", kbfunc_ptrmove, Context::sc, CWM_RIGHT},
+    {"pointer-move-up-big", kbfunc_ptrmove, Context::sc, CWM_UP_BIG},
+    {"pointer-move-down-big", kbfunc_ptrmove, Context::sc, CWM_DOWN_BIG},
+    {"pointer-move-left-big", kbfunc_ptrmove, Context::sc, CWM_LEFT_BIG},
+    {"pointer-move-right-big", kbfunc_ptrmove, Context::sc, CWM_RIGHT_BIG},
+    {"menu-cmd", kbfunc_menu_cmd, Context::sc, 0},
+    {"menu-group", kbfunc_menu_group, Context::sc, 0},
+    {"menu-ssh", kbfunc_menu_ssh, Context::sc, 0},
+    {"menu-window", kbfunc_menu_client, Context::sc, CWM_MENU_WINDOW_ALL},
+    {"menu-window-hidden", kbfunc_menu_client, Context::sc, CWM_MENU_WINDOW_HIDDEN},
+    {"menu-exec", kbfunc_menu_exec, Context::sc, 0},
+    {"menu-exec-wm", kbfunc_menu_wm, Context::sc, 0},
+    {"terminal", kbfunc_exec_term, Context::sc, 0},
+    {"lock", kbfunc_exec_lock, Context::sc, 0},
+    {"restart", kbfunc_cwm_status, Context::sc, Cwm_status::CWM_EXEC_WM},
+    {"quit", kbfunc_cwm_status, Context::sc, Cwm_status::CWM_QUIT},
 };
 
-static unsigned int ignore_mods[] = {0, LockMask, Mod2Mask, Mod2Mask | LockMask};
-static const struct {
-	const char ch;
-	int mask;
+static constexpr unsigned int ignore_mods[] = {0, LockMask, Mod2Mask, Mod2Mask | LockMask};
+
+static constexpr struct {
+	char const ch;
+	unsigned const mask;
 } bind_mods[] = {
     {'S', ShiftMask},
     {'C', ControlMask},
@@ -195,9 +199,10 @@ static const struct {
     {'4', Mod4Mask},
     {'5', Mod5Mask},
 };
-static const struct {
-	const char* key;
-	const char* func;
+
+static constexpr struct {
+	char const* key;
+	char const* func;
 } key_binds[] = {
 	{ "CM-Return",	"terminal" },
 	{ "CM-Delete",	"lock" },
@@ -265,7 +270,7 @@ mouse_binds[] = {
 
 void conf_init(struct Conf* c)
 {
-	const char* home;
+	char const* home;
 	struct passwd* pw;
 	unsigned int i;
 
@@ -285,7 +290,7 @@ void conf_init(struct Conf* c)
 	TAILQ_INIT(&c->cmdq);
 	TAILQ_INIT(&c->wmq);
 
-	for (i = 0; i < nitems(key_binds); i++) conf_bind_key(c, key_binds[i].key, key_binds[i].func);
+	for (auto const& k : key_binds) conf_bind_key(c, k.key, k.func);
 
 	for (i = 0; i < nitems(mouse_binds); i++)
 		conf_bind_mouse(c, mouse_binds[i].key, mouse_binds[i].func);
@@ -313,10 +318,10 @@ void conf_init(struct Conf* c)
 
 void conf_clear(struct Conf* c)
 {
-	struct autogroup* ag;
-	struct bind_ctx *kb, *mb;
-	struct winname* wn;
-	struct cmd_ctx *cmd, *wm;
+	Autogroup* ag;
+	Bind_ctx *kb, *mb;
+	Winname* wn;
+	Cmd_ctx *cmd, *wm;
 	int i;
 
 	while ((cmd = TAILQ_FIRST(&c->cmdq)) != nullptr) {
@@ -358,11 +363,11 @@ void conf_clear(struct Conf* c)
 	free(c->wmname);
 }
 
-void conf_cmd_add(struct Conf* c, const char* name, const char* path)
+void conf_cmd_add(struct Conf* c, char const* name, char const* path)
 {
-	struct cmd_ctx *cmd, *cmdtmp = nullptr, *cmdnxt;
+	Cmd_ctx *cmd, *cmdtmp = nullptr, *cmdnxt;
 
-	cmd = (cmd_ctx*)xmalloc(sizeof(*cmd));
+	cmd = static_cast<Cmd_ctx*>(xmalloc(sizeof(*cmd)));
 	cmd->name = xstrdup(name);
 	cmd->path = xstrdup(path);
 
@@ -378,11 +383,11 @@ void conf_cmd_add(struct Conf* c, const char* name, const char* path)
 	TAILQ_INSERT_TAIL(&c->cmdq, cmd, entry);
 }
 
-void conf_wm_add(struct Conf* c, const char* name, const char* path)
+void conf_wm_add(struct Conf* c, char const* name, char const* path)
 {
-	struct cmd_ctx *wm, *wmtmp = nullptr, *wmnxt;
+	Cmd_ctx *wm, *wmtmp = nullptr, *wmnxt;
 
-	wm = (cmd_ctx*)xmalloc(sizeof(*wm));
+	wm = static_cast<Cmd_ctx*>(xmalloc(sizeof(*wm)));
 	wm->name = xstrdup(name);
 	wm->path = xstrdup(path);
 
@@ -398,13 +403,13 @@ void conf_wm_add(struct Conf* c, const char* name, const char* path)
 	TAILQ_INSERT_TAIL(&c->wmq, wm, entry);
 }
 
-void conf_autogroup(struct Conf* c, int num, const char* name, const char* wclass)
+void conf_autogroup(struct Conf* c, int num, char const* name, char const* wclass)
 {
-	struct autogroup* ag;
+	Autogroup* ag;
 	char* p;
 
-	ag = (autogroup*)xmalloc(sizeof(*ag));
-	if ((p = (char*)strchr(wclass, ',')) == nullptr) {
+	ag = static_cast<Autogroup*>(xmalloc(sizeof(*ag)));
+	if ((p = const_cast<char*>(strchr(wclass, ','))) == nullptr) {
 		if (name == nullptr)
 			ag->name = nullptr;
 		else
@@ -424,11 +429,11 @@ void conf_autogroup(struct Conf* c, int num, const char* name, const char* wclas
 	TAILQ_INSERT_TAIL(&c->autogroupq, ag, entry);
 }
 
-void conf_ignore(struct Conf* c, const char* name)
+void conf_ignore(struct Conf* c, char const* name)
 {
-	struct winname* wn;
+	Winname* wn;
 
-	wn = (winname*)xmalloc(sizeof(*wn));
+	wn = (Winname*)xmalloc(sizeof(*wn));
 	wn->name = xstrdup(name);
 	TAILQ_INSERT_TAIL(&c->ignoreq, wn, entry);
 }
@@ -441,11 +446,11 @@ void conf_cursor(struct Conf* c)
 		c->cursor[i] = XCreateFontCursor(X_Dpy, cursor_binds[i]);
 }
 
-void conf_client(struct client_ctx* cc)
+void conf_client(Client_ctx* cc)
 {
-	struct winname* wn;
+	Winname* wn;
 
-	TAILQ_FOREACH(wn, &Conf.ignoreq, entry)
+	TAILQ_FOREACH(wn, &conf.ignoreq, entry)
 	{
 		if (strncasecmp(wn->name, cc->name, strlen(wn->name)) == 0) {
 			cc->flags |= CLIENT_IGNORE;
@@ -454,22 +459,22 @@ void conf_client(struct client_ctx* cc)
 	}
 }
 
-void conf_screen(struct screen_ctx* sc)
+void conf_screen(Screen_ctx* sc)
 {
 	unsigned int i;
 	XftColor xc;
 
-	sc->gap = Conf.gap;
-	sc->snapdist = Conf.snapdist;
+	sc->gap = conf.gap;
+	sc->snapdist = conf.snapdist;
 
-	sc->xftfont = XftFontOpenXlfd(X_Dpy, sc->which, Conf.font);
+	sc->xftfont = XftFontOpenXlfd(X_Dpy, sc->which, conf.font);
 	if (sc->xftfont == nullptr) {
-		sc->xftfont = XftFontOpenName(X_Dpy, sc->which, Conf.font);
-		if (sc->xftfont == nullptr) errx(1, "%s: XftFontOpenName: %s", __func__, Conf.font);
+		sc->xftfont = XftFontOpenName(X_Dpy, sc->which, conf.font);
+		if (sc->xftfont == nullptr) errx(1, "%s: XftFontOpenName: %s", __func__, conf.font);
 	}
 
 	for (i = 0; i < nitems(color_binds); i++) {
-		if (i == CWM_COLOR_MENU_FONT_SEL && *Conf.color[i] == '\0') {
+		if (i == CWM_COLOR_MENU_FONT_SEL && *conf.color[i] == '\0') {
 			xu_xorcolor(sc->xftcolor[CWM_COLOR_MENU_BG], sc->xftcolor[CWM_COLOR_MENU_FG], &xc);
 			xu_xorcolor(sc->xftcolor[CWM_COLOR_MENU_FONT], xc, &xc);
 			if (!XftColorAllocValue(X_Dpy,
@@ -477,11 +482,11 @@ void conf_screen(struct screen_ctx* sc)
 			                        sc->colormap,
 			                        &xc.color,
 			                        &sc->xftcolor[CWM_COLOR_MENU_FONT_SEL]))
-				warnx("XftColorAllocValue: %s", Conf.color[i]);
+				warnx("XftColorAllocValue: %s", conf.color[i]);
 			break;
 		}
-		if (!XftColorAllocName(X_Dpy, sc->visual, sc->colormap, Conf.color[i], &sc->xftcolor[i])) {
-			warnx("XftColorAllocName: %s", Conf.color[i]);
+		if (!XftColorAllocName(X_Dpy, sc->visual, sc->colormap, conf.color[i], &sc->xftcolor[i])) {
+			warnx("XftColorAllocName: %s", conf.color[i]);
 			XftColorAllocName(X_Dpy, sc->visual, sc->colormap, color_binds[i], &sc->xftcolor[i]);
 		}
 	}
@@ -489,44 +494,38 @@ void conf_screen(struct screen_ctx* sc)
 	conf_grab_kbd(sc->rootwin);
 }
 
-void conf_group(struct screen_ctx* sc)
+void conf_group(Screen_ctx* sc)
 {
-	unsigned int i;
-
-	for (i = 0; i < nitems(group_binds); i++) {
-		group_init(sc, group_binds[i].num, group_binds[i].name);
-		Conf.ngroups++;
+	for (auto const& g : group_binds) {
+		group_init(sc, g.num, g.name);
+		++conf.ngroups;
 	}
 }
 
-static const char* conf_bind_mask(const char* name, unsigned int* mask)
+static char const* conf_bind_mask(char const* name, unsigned int* mask)
 {
-	char* dash;
-	const char* ch;
-	unsigned int i;
-
+	char const *dash;
 	*mask = 0;
-	if ((dash = (char*)strchr(name, '-')) == nullptr) return name;
-	for (i = 0; i < nitems(bind_mods); i++) {
-		if ((ch = strchr(name, bind_mods[i].ch)) != nullptr && ch < dash)
-			*mask |= bind_mods[i].mask;
+	if ((dash = strchr(name, '-')) == nullptr) return name;
+	for (auto const& b : bind_mods) {
+		if (auto ch = strchr(name, b.ch); ch != nullptr && ch < dash) *mask |= b.mask;
 	}
 	/* Skip past modifiers. */
 	return (dash + 1);
 }
 
-int conf_bind_key(struct Conf* c, const char* bind, const char* cmd)
+int conf_bind_key(struct Conf* c, char const* bind, char const* cmd)
 {
-	struct bind_ctx* kb;
-	struct cargs* cargs;
-	const char* key;
+	Bind_ctx* kb;
+	Cargs* cargs;
+	char const* key;
 	unsigned int i;
 
 	if ((strcmp(bind, "all") == 0) && (cmd == nullptr)) {
 		conf_unbind_key(c, nullptr);
 		return 1;
 	}
-	kb = (bind_ctx*)xmalloc(sizeof(*kb));
+	kb = (Bind_ctx*)xmalloc(sizeof(*kb));
 	key = conf_bind_mask(bind, &kb->modmask);
 	kb->press.keysym = XStringToKeysym(key);
 	if (kb->press.keysym == NoSymbol) {
@@ -539,7 +538,7 @@ int conf_bind_key(struct Conf* c, const char* bind, const char* cmd)
 		free(kb);
 		return 1;
 	}
-	cargs = (struct cargs*)xcalloc(1, sizeof(*cargs));
+	cargs = (Cargs*)xcalloc(1, sizeof(*cargs));
 	for (i = 0; i < nitems(name_to_func); i++) {
 		if (strcmp(name_to_func[i].tag, cmd) != 0) continue;
 		kb->callback = name_to_func[i].handler;
@@ -548,7 +547,7 @@ int conf_bind_key(struct Conf* c, const char* bind, const char* cmd)
 		goto out;
 	}
 	kb->callback = kbfunc_exec_cmd;
-	kb->context = CWM_CONTEXT_NONE;
+	kb->context = Context::none;
 	cargs->flag = 0;
 	cargs->cmd = xstrdup(cmd);
 out:
@@ -557,9 +556,9 @@ out:
 	return 1;
 }
 
-static void conf_unbind_key(struct Conf* c, struct bind_ctx* unbind)
+static void conf_unbind_key(struct Conf* c, Bind_ctx* unbind)
 {
-	struct bind_ctx *key = nullptr, *keynxt;
+	Bind_ctx *key = nullptr, *keynxt;
 
 	TAILQ_FOREACH_SAFE(key, &c->keybindq, entry, keynxt)
 	{
@@ -573,18 +572,18 @@ static void conf_unbind_key(struct Conf* c, struct bind_ctx* unbind)
 	}
 }
 
-int conf_bind_mouse(struct Conf* c, const char* bind, const char* cmd)
+int conf_bind_mouse(struct Conf* c, char const* bind, char const* cmd)
 {
-	struct bind_ctx* mb;
-	struct cargs* cargs;
-	const char *button, *errstr;
+	Bind_ctx* mb;
+	Cargs* cargs;
+	char const *button, *errstr;
 	unsigned int i;
 
 	if ((strcmp(bind, "all") == 0) && (cmd == nullptr)) {
 		conf_unbind_mouse(c, nullptr);
 		return 1;
 	}
-	mb = (bind_ctx*)xmalloc(sizeof(*mb));
+	mb = (Bind_ctx*)xmalloc(sizeof(*mb));
 	button = conf_bind_mask(bind, &mb->modmask);
 	mb->press.button = strtonum(button, Button1, Button5, &errstr);
 	if (errstr) {
@@ -597,7 +596,7 @@ int conf_bind_mouse(struct Conf* c, const char* bind, const char* cmd)
 		free(mb);
 		return 1;
 	}
-	cargs = (struct cargs*)xcalloc(1, sizeof(*cargs));
+	cargs = (Cargs*)xcalloc(1, sizeof(*cargs));
 	for (i = 0; i < nitems(name_to_func); i++) {
 		if (strcmp(name_to_func[i].tag, cmd) != 0) continue;
 		mb->callback = name_to_func[i].handler;
@@ -606,7 +605,7 @@ int conf_bind_mouse(struct Conf* c, const char* bind, const char* cmd)
 		goto out;
 	}
 	mb->callback = kbfunc_exec_cmd;
-	mb->context = CWM_CONTEXT_NONE;
+	mb->context = Context::none;
 	cargs->flag = 0;
 	cargs->cmd = xstrdup(cmd);
 out:
@@ -615,9 +614,9 @@ out:
 	return 1;
 }
 
-static void conf_unbind_mouse(struct Conf* c, struct bind_ctx* unbind)
+static void conf_unbind_mouse(struct Conf* c, Bind_ctx* unbind)
 {
-	struct bind_ctx *mb = nullptr, *mbnxt;
+	Bind_ctx *mb = nullptr, *mbnxt;
 
 	TAILQ_FOREACH_SAFE(mb, &c->mousebindq, entry, mbnxt)
 	{
@@ -633,13 +632,13 @@ static void conf_unbind_mouse(struct Conf* c, struct bind_ctx* unbind)
 
 void conf_grab_kbd(Window win)
 {
-	struct bind_ctx* kb;
+	Bind_ctx* kb;
 	KeyCode kc;
 	unsigned int i;
 
 	XUngrabKey(X_Dpy, AnyKey, AnyModifier, win);
 
-	TAILQ_FOREACH(kb, &Conf.keybindq, entry)
+	TAILQ_FOREACH(kb, &conf.keybindq, entry)
 	{
 		kc = XKeysymToKeycode(X_Dpy, kb->press.keysym);
 		if ((XkbKeycodeToKeysym(X_Dpy, kc, 0, 0) != kb->press.keysym)
@@ -659,14 +658,14 @@ void conf_grab_kbd(Window win)
 
 void conf_grab_mouse(Window win)
 {
-	struct bind_ctx* mb;
+	Bind_ctx* mb;
 	unsigned int i;
 
 	XUngrabButton(X_Dpy, AnyButton, AnyModifier, win);
 
-	TAILQ_FOREACH(mb, &Conf.mousebindq, entry)
+	TAILQ_FOREACH(mb, &conf.mousebindq, entry)
 	{
-		if (mb->context != CWM_CONTEXT_CC) continue;
+		if (mb->context != Context::cc) continue;
 		for (i = 0; i < nitems(ignore_mods); i++) {
 			XGrabButton(X_Dpy,
 			            mb->press.button,

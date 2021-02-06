@@ -21,6 +21,7 @@
 #include "calmwm.hxx"
 #include "queue.hxx"
 
+#include <array>
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -63,17 +64,16 @@ static int match_substr(char* sub, char* str, int zeroidx)
 
 void search_match_client(struct menu_q* menuq, struct menu_q* resultq, char* search)
 {
-	struct menu *mi, *tierp[3], *before = nullptr;
-	struct client_ctx* cc;
-	struct winname* wn;
-
-	(void)memset(tierp, 0, sizeof(tierp));
+	std::array<Menu*, 3> tierp {0, 0, 0};
+	Menu *mi, *before = nullptr;
+	Client_ctx* cc;
+	Winname* wn;
 
 	TAILQ_INIT(resultq);
 	TAILQ_FOREACH(mi, menuq, entry)
 	{
 		int tier = -1, t;
-		cc = (struct client_ctx*)mi->ctx;
+		cc = (Client_ctx*)mi->ctx;
 
 		/* Match on label. */
 		if (match_substr(search, cc->label, 0)) tier = 0;
@@ -93,7 +93,7 @@ void search_match_client(struct menu_q* menuq, struct menu_q* resultq, char* sea
 		if (tier < 0) continue;
 
 		/* Current window is ranked down. */
-		if ((tier < nitems(tierp) - 1) && (cc->flags & CLIENT_ACTIVE)) tier++;
+		if ((tier < tierp.size() - 1) && (cc->flags & CLIENT_ACTIVE)) tier++;
 
 		/* Hidden window is ranked up. */
 		if ((tier > 0) && (cc->flags & CLIENT_HIDDEN)) tier--;
@@ -119,27 +119,27 @@ void search_match_client(struct menu_q* menuq, struct menu_q* resultq, char* sea
 
 void search_match_cmd(struct menu_q* menuq, struct menu_q* resultq, char* search)
 {
-	struct menu* mi;
-	struct cmd_ctx* cmd;
+	Menu* mi;
+	Cmd_ctx* cmd;
 
 	TAILQ_INIT(resultq);
 	TAILQ_FOREACH(mi, menuq, entry)
 	{
-		cmd = (struct cmd_ctx*)mi->ctx;
+		cmd = (Cmd_ctx*)mi->ctx;
 		if (match_substr(search, cmd->name, 0)) TAILQ_INSERT_TAIL(resultq, mi, resultentry);
 	}
 }
 
 void search_match_group(struct menu_q* menuq, struct menu_q* resultq, char* search)
 {
-	struct menu* mi;
-	struct group_ctx* gc;
+	Menu* mi;
+	Group_ctx* gc;
 	char* s;
 
 	TAILQ_INIT(resultq);
 	TAILQ_FOREACH(mi, menuq, entry)
 	{
-		gc = (struct group_ctx*)mi->ctx;
+		gc = (Group_ctx*)mi->ctx;
 		xasprintf(&s, "%d %s", gc->num, gc->name);
 		if (match_substr(search, s, 0)) TAILQ_INSERT_TAIL(resultq, mi, resultentry);
 		free(s);
@@ -148,7 +148,7 @@ void search_match_group(struct menu_q* menuq, struct menu_q* resultq, char* sear
 
 static void match_path_type(struct menu_q* resultq, char* search, int flag)
 {
-	struct menu* mi;
+	Menu* mi;
 	char* pattern;
 	glob_t g;
 	int i;
@@ -157,7 +157,7 @@ static void match_path_type(struct menu_q* resultq, char* search, int flag)
 	if (glob(pattern, GLOB_MARK, nullptr, &g) != 0) return;
 	for (i = 0; i < g.gl_pathc; i++) {
 		if ((flag & PATH_EXEC) && access(g.gl_pathv[i], X_OK)) continue;
-		mi = (menu*)xcalloc(1, sizeof(*mi));
+		mi = (Menu*)xcalloc(1, sizeof(*mi));
 		(void)strlcpy(mi->text, g.gl_pathv[i], sizeof(mi->text));
 		TAILQ_INSERT_TAIL(resultq, mi, resultentry);
 	}
@@ -167,7 +167,7 @@ static void match_path_type(struct menu_q* resultq, char* search, int flag)
 
 void search_match_exec(struct menu_q* menuq, struct menu_q* resultq, char* search)
 {
-	struct menu *mi, *mj;
+	Menu *mi, *mj;
 	int r;
 
 	TAILQ_INIT(resultq);
@@ -194,7 +194,7 @@ void search_match_path(struct menu_q* menuq, struct menu_q* resultq, char* searc
 
 void search_match_text(struct menu_q* menuq, struct menu_q* resultq, char* search)
 {
-	struct menu* mi;
+	Menu* mi;
 
 	TAILQ_INIT(resultq);
 	TAILQ_FOREACH(mi, menuq, entry)
@@ -205,21 +205,21 @@ void search_match_text(struct menu_q* menuq, struct menu_q* resultq, char* searc
 
 void search_match_wm(struct menu_q* menuq, struct menu_q* resultq, char* search)
 {
-	struct menu* mi;
-	struct cmd_ctx* wm;
+	Menu* mi;
+	Cmd_ctx* wm;
 
 	TAILQ_INIT(resultq);
 	TAILQ_FOREACH(mi, menuq, entry)
 	{
-		wm = (struct cmd_ctx*)mi->ctx;
+		wm = (Cmd_ctx*)mi->ctx;
 		if ((match_substr(search, wm->name, 0)) || (match_substr(search, wm->path, 0)))
 			TAILQ_INSERT_TAIL(resultq, mi, resultentry);
 	}
 }
 
-void search_print_client(struct menu* mi, int listing)
+void search_print_client(Menu* mi, int listing)
 {
-	struct client_ctx* cc = (struct client_ctx*)mi->ctx;
+	Client_ctx* cc = (Client_ctx*)mi->ctx;
 	char flag = ' ';
 
 	if (cc->flags & CLIENT_ACTIVE)
@@ -236,16 +236,16 @@ void search_print_client(struct menu* mi, int listing)
 	               cc->name);
 }
 
-void search_print_cmd(struct menu* mi, int listing)
+void search_print_cmd(Menu* mi, int listing)
 {
-	struct cmd_ctx* cmd = (struct cmd_ctx*)mi->ctx;
+	Cmd_ctx* cmd = (Cmd_ctx*)mi->ctx;
 
 	(void)snprintf(mi->print, sizeof(mi->print), "%s", cmd->name);
 }
 
-void search_print_group(struct menu* mi, int listing)
+void search_print_group(Menu* mi, int listing)
 {
-	struct group_ctx* gc = (struct group_ctx*)mi->ctx;
+	Group_ctx* gc = (Group_ctx*)mi->ctx;
 
 	(void)snprintf(mi->print,
 	               sizeof(mi->print),
@@ -254,14 +254,14 @@ void search_print_group(struct menu* mi, int listing)
 	               gc->name);
 }
 
-void search_print_text(struct menu* mi, int listing)
+void search_print_text(Menu* mi, int listing)
 {
 	(void)snprintf(mi->print, sizeof(mi->print), "%s", mi->text);
 }
 
-void search_print_wm(struct menu* mi, int listing)
+void search_print_wm(Menu* mi, int listing)
 {
-	struct cmd_ctx* wm = (struct cmd_ctx*)mi->ctx;
+	Cmd_ctx* wm = (Cmd_ctx*)mi->ctx;
 
 	(void)snprintf(mi->print, sizeof(mi->print), "%s [%s]", wm->name, wm->path);
 }

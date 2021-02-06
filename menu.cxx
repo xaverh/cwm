@@ -52,11 +52,11 @@ enum ctltype {
 	CTL_ALL
 };
 
-struct menu_ctx {
-	struct screen_ctx* sc;
+struct Menu_ctx {
+	Screen_ctx* sc;
 	Window win;
 	XftDraw* xftdraw;
-	struct geom geom;
+	Geom geom;
 	char searchstr[MENU_MAXENTRY + 1];
 	char dispstr[MENU_MAXENTRY * 2 + 1];
 	char promptstr[MENU_MAXENTRY + 1];
@@ -68,28 +68,29 @@ struct menu_ctx {
 	int num;
 	int flags;
 	void (*match)(struct menu_q*, struct menu_q*, char*);
-	void (*print)(struct menu*, int);
+	void (*print)(Menu*, int);
 };
-static struct menu* menu_handle_key(XEvent*, struct menu_ctx*, struct menu_q*, struct menu_q*);
-static void menu_handle_move(struct menu_ctx*, struct menu_q*, int, int);
-static struct menu* menu_handle_release(struct menu_ctx*, struct menu_q*, int, int);
-static void menu_draw(struct menu_ctx*, struct menu_q*, struct menu_q*);
-static void menu_draw_entry(struct menu_ctx*, struct menu_q*, int, int);
-static int menu_calc_entry(struct menu_ctx*, int, int);
-static struct menu* menu_complete_path(struct menu_ctx*);
+
+static Menu* menu_handle_key(XEvent*, Menu_ctx*, struct menu_q*, struct menu_q*);
+static void menu_handle_move(Menu_ctx*, struct menu_q*, int, int);
+static Menu* menu_handle_release(Menu_ctx*, struct menu_q*, int, int);
+static void menu_draw(Menu_ctx*, struct menu_q*, struct menu_q*);
+static void menu_draw_entry(Menu_ctx*, struct menu_q*, int, int);
+static int menu_calc_entry(Menu_ctx*, int, int);
+static Menu* menu_complete_path(Menu_ctx*);
 static int menu_keycode(XKeyEvent*, enum ctltype*, char*);
 
-struct menu* menu_filter(struct screen_ctx* sc,
+Menu* menu_filter(Screen_ctx* sc,
                          struct menu_q* menuq,
-                         const char* prompt,
-                         const char* initial,
+                         char const* prompt,
+                         char const* initial,
                          int flags,
                          void (*match)(struct menu_q*, struct menu_q*, char*),
-                         void (*print)(struct menu*, int))
+                         void (*print)(Menu*, int))
 {
-	struct menu_ctx mc;
+	Menu_ctx mc;
 	struct menu_q resultq;
-	struct menu* mi = nullptr;
+	Menu* mi = nullptr;
 	XEvent e;
 	Window focuswin;
 	int focusrevert, xsave, ysave, xcur, ycur;
@@ -121,7 +122,7 @@ struct menu* menu_filter(struct screen_ctx* sc,
 	                             0,
 	                             1,
 	                             1,
-	                             Conf.bwidth,
+	                             conf.bwidth,
 	                             sc->xftcolor[CWM_COLOR_MENU_FG].pixel,
 	                             sc->xftcolor[CWM_COLOR_MENU_BG].pixel);
 	mc.xftdraw = XftDrawCreate(X_Dpy, mc.win, sc->visual, sc->colormap);
@@ -136,7 +137,7 @@ struct menu* menu_filter(struct screen_ctx* sc,
 	                 GrabModeAsync,
 	                 GrabModeAsync,
 	                 None,
-	                 Conf.cursor[CF_QUESTION],
+	                 conf.cursor[CF_QUESTION],
 	                 CurrentTime)
 	    != GrabSuccess) {
 		XftDrawDestroy(mc.xftdraw);
@@ -189,14 +190,14 @@ out:
 	return mi;
 }
 
-static struct menu* menu_complete_path(struct menu_ctx* mc)
+static Menu* menu_complete_path(Menu_ctx* mc)
 {
-	struct screen_ctx* sc = mc->sc;
-	struct menu *mi, *mr;
+	Screen_ctx* sc = mc->sc;
+	Menu *mi, *mr;
 	struct menu_q menuq;
 	int mflags = (CWM_MENU_DUMMY);
 
-	mr = (menu*)xcalloc(1, sizeof(*mr));
+	mr = (Menu*)xcalloc(1, sizeof(*mr));
 
 	TAILQ_INIT(&menuq);
 
@@ -221,12 +222,12 @@ static struct menu* menu_complete_path(struct menu_ctx* mc)
 	return mr;
 }
 
-static struct menu* menu_handle_key(XEvent* e,
-                                    struct menu_ctx* mc,
+static Menu* menu_handle_key(XEvent* e,
+                                    Menu_ctx* mc,
                                     struct menu_q* menuq,
                                     struct menu_q* resultq)
 {
-	struct menu* mi;
+	Menu* mi;
 	enum ctltype ctl;
 	char chr[32];
 	size_t len;
@@ -264,7 +265,7 @@ static struct menu* menu_handle_key(XEvent* e,
 		 * even if dummy is zero, we need to return something.
 		 */
 		if ((mi = TAILQ_FIRST(resultq)) == nullptr) {
-			mi = (menu*)xmalloc(sizeof(*mi));
+			mi = (Menu*)xmalloc(sizeof(*mi));
 			(void)strlcpy(mi->text, mc->searchstr, sizeof(mi->text));
 			mi->dummy = 1;
 		}
@@ -299,7 +300,7 @@ static struct menu* menu_handle_key(XEvent* e,
 		break;
 	case CTL_ALL: mc->list = !mc->list; break;
 	case CTL_ABORT:
-		mi = (menu*)xmalloc(sizeof(*mi));
+		mi = (Menu*)xmalloc(sizeof(*mi));
 		mi->text[0] = '\0';
 		mi->dummy = 1;
 		mi->abort = 1;
@@ -322,11 +323,11 @@ static struct menu* menu_handle_key(XEvent* e,
 	return nullptr;
 }
 
-static void menu_draw(struct menu_ctx* mc, struct menu_q* menuq, struct menu_q* resultq)
+static void menu_draw(Menu_ctx* mc, struct menu_q* menuq, struct menu_q* resultq)
 {
-	struct screen_ctx* sc = mc->sc;
-	struct menu* mi;
-	struct geom area;
+	Screen_ctx* sc = mc->sc;
+	Menu* mi;
+	Geom area;
 	int n, xsave, ysave;
 	XGlyphInfo extents;
 
@@ -371,8 +372,8 @@ static void menu_draw(struct menu_ctx* mc, struct menu_q* menuq, struct menu_q* 
 	}
 
 	area = screen_area(sc, mc->geom.x, mc->geom.y, 1);
-	area.w += area.x - Conf.bwidth * 2;
-	area.h += area.y - Conf.bwidth * 2;
+	area.w += area.x - conf.bwidth * 2;
+	area.h += area.y - conf.bwidth * 2;
 
 	xsave = mc->geom.x;
 	ysave = mc->geom.y;
@@ -422,10 +423,10 @@ static void menu_draw(struct menu_ctx* mc, struct menu_q* menuq, struct menu_q* 
 	if (n > 1) menu_draw_entry(mc, resultq, 1, 1);
 }
 
-static void menu_draw_entry(struct menu_ctx* mc, struct menu_q* resultq, int entry, int active)
+static void menu_draw_entry(Menu_ctx* mc, struct menu_q* resultq, int entry, int active)
 {
-	struct screen_ctx* sc = mc->sc;
-	struct menu* mi;
+	Screen_ctx* sc = mc->sc;
+	Menu* mi;
 	int color, i = 1;
 
 	TAILQ_FOREACH(mi, resultq, resultentry)
@@ -449,7 +450,7 @@ static void menu_draw_entry(struct menu_ctx* mc, struct menu_q* resultq, int ent
 	                  strlen(mi->print));
 }
 
-static void menu_handle_move(struct menu_ctx* mc, struct menu_q* resultq, int x, int y)
+static void menu_handle_move(Menu_ctx* mc, struct menu_q* resultq, int x, int y)
 {
 	mc->prev = mc->entry;
 	mc->entry = menu_calc_entry(mc, x, y);
@@ -458,14 +459,14 @@ static void menu_handle_move(struct menu_ctx* mc, struct menu_q* resultq, int x,
 
 	if (mc->prev != -1) menu_draw_entry(mc, resultq, mc->prev, 0);
 	if (mc->entry != -1) {
-		XChangeActivePointerGrab(X_Dpy, MENUGRABMASK, Conf.cursor[CF_NORMAL], CurrentTime);
+		XChangeActivePointerGrab(X_Dpy, MENUGRABMASK, conf.cursor[CF_NORMAL], CurrentTime);
 		menu_draw_entry(mc, resultq, mc->entry, 1);
 	}
 }
 
-static struct menu* menu_handle_release(struct menu_ctx* mc, struct menu_q* resultq, int x, int y)
+static Menu* menu_handle_release(Menu_ctx* mc, struct menu_q* resultq, int x, int y)
 {
-	struct menu* mi;
+	Menu* mi;
 	int entry, i = 1;
 
 	entry = menu_calc_entry(mc, x, y);
@@ -473,16 +474,16 @@ static struct menu* menu_handle_release(struct menu_ctx* mc, struct menu_q* resu
 	TAILQ_FOREACH(mi, resultq, resultentry)
 	if (entry == i++) break;
 	if (mi == nullptr) {
-		mi = (menu*)xmalloc(sizeof(*mi));
+		mi = (Menu*)xmalloc(sizeof(*mi));
 		mi->text[0] = '\0';
 		mi->dummy = 1;
 	}
 	return mi;
 }
 
-static int menu_calc_entry(struct menu_ctx* mc, int x, int y)
+static int menu_calc_entry(Menu_ctx* mc, int x, int y)
 {
-	struct screen_ctx* sc = mc->sc;
+	Screen_ctx* sc = mc->sc;
 	int entry;
 
 	entry = y / (sc->xftfont->height + 1);
@@ -561,12 +562,12 @@ static int menu_keycode(XKeyEvent* ev, enum ctltype* ctl, char* chr)
 	return 0;
 }
 
-void menuq_add(struct menu_q* mq, void* ctx, const char* fmt, ...)
+void menuq_add(struct menu_q* mq, void* ctx, char const* fmt, ...)
 {
 	va_list ap;
-	struct menu* mi;
+	Menu* mi;
 
-	mi = (menu*)xcalloc(1, sizeof(*mi));
+	mi = (Menu*)xcalloc(1, sizeof(*mi));
 	mi->ctx = ctx;
 
 	va_start(ap, fmt);
@@ -581,7 +582,7 @@ void menuq_add(struct menu_q* mq, void* ctx, const char* fmt, ...)
 
 void menuq_clear(struct menu_q* mq)
 {
-	struct menu* mi;
+	Menu* mi;
 
 	while ((mi = TAILQ_FIRST(mq)) != nullptr) {
 		TAILQ_REMOVE(mq, mi, entry);

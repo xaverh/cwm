@@ -22,6 +22,7 @@
 #include "calmwm.hxx"
 #include "queue.hxx"
 
+#include <algorithm>
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -30,14 +31,13 @@
 #include <err.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <algorithm>
 
-static struct group_ctx* group_next(struct group_ctx*);
-static struct group_ctx* group_prev(struct group_ctx*);
-static void group_restack(struct group_ctx*);
-static void group_set_active(struct group_ctx*);
+static Group_ctx* group_next(Group_ctx*);
+static Group_ctx* group_prev(Group_ctx*);
+static void group_restack(Group_ctx*);
+static void group_set_active(Group_ctx*);
 
-void group_assign(struct group_ctx* gc, struct client_ctx* cc)
+void group_assign(Group_ctx* gc, Client_ctx* cc)
 {
 	if ((gc != nullptr) && (gc->num == 0)) gc = nullptr;
 
@@ -46,10 +46,10 @@ void group_assign(struct group_ctx* gc, struct client_ctx* cc)
 	xu_ewmh_set_net_wm_desktop(cc);
 }
 
-void group_hide(struct group_ctx* gc)
+void group_hide(Group_ctx* gc)
 {
-	struct screen_ctx* sc = gc->sc;
-	struct client_ctx* cc;
+	Screen_ctx* sc = gc->sc;
+	Client_ctx* cc;
 
 	screen_updatestackingorder(gc->sc);
 
@@ -60,10 +60,10 @@ void group_hide(struct group_ctx* gc)
 	}
 }
 
-void group_show(struct group_ctx* gc)
+void group_show(Group_ctx* gc)
 {
-	struct screen_ctx* sc = gc->sc;
-	struct client_ctx* cc;
+	Screen_ctx* sc = gc->sc;
+	Client_ctx* cc;
 
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	{
@@ -74,10 +74,10 @@ void group_show(struct group_ctx* gc)
 	group_set_active(gc);
 }
 
-static void group_restack(struct group_ctx* gc)
+static void group_restack(Group_ctx* gc)
 {
-	struct screen_ctx* sc = gc->sc;
-	struct client_ctx* cc;
+	Screen_ctx* sc = gc->sc;
+	Client_ctx* cc;
 	Window* winlist;
 	int i, lastempty = -1;
 	int nwins = 0, highstack = 0;
@@ -111,11 +111,11 @@ static void group_restack(struct group_ctx* gc)
 	free(winlist);
 }
 
-void group_init(struct screen_ctx* sc, int num, const char* name)
+void group_init(Screen_ctx* sc, int num, char const* name)
 {
-	struct group_ctx* gc;
+	Group_ctx* gc;
 
-	gc = (group_ctx*)xmalloc(sizeof(*gc));
+	gc = (Group_ctx*)xmalloc(sizeof(*gc));
 	gc->sc = sc;
 	gc->name = xstrdup(name);
 	gc->num = num;
@@ -124,19 +124,19 @@ void group_init(struct screen_ctx* sc, int num, const char* name)
 	if (num == 1) group_set_active(gc);
 }
 
-void group_set_active(struct group_ctx* gc)
+void group_set_active(Group_ctx* gc)
 {
-	struct screen_ctx* sc = gc->sc;
+	Screen_ctx* sc = gc->sc;
 
 	sc->group_active = gc;
 
 	xu_ewmh_net_current_desktop(sc);
 }
 
-void group_movetogroup(struct client_ctx* cc, int idx)
+void group_movetogroup(Client_ctx* cc, int idx)
 {
-	struct screen_ctx* sc = cc->sc;
-	struct group_ctx* gc;
+	Screen_ctx* sc = cc->sc;
+	Group_ctx* gc;
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	{
@@ -148,10 +148,10 @@ void group_movetogroup(struct client_ctx* cc, int idx)
 	}
 }
 
-void group_toggle_membership(struct client_ctx* cc)
+void group_toggle_membership(Client_ctx* cc)
 {
-	struct screen_ctx* sc = cc->sc;
-	struct group_ctx* gc = sc->group_active;
+	Screen_ctx* sc = cc->sc;
+	Group_ctx* gc = sc->group_active;
 
 	if (cc->gc == gc) {
 		group_assign(nullptr, cc);
@@ -163,10 +163,10 @@ void group_toggle_membership(struct client_ctx* cc)
 	client_draw_border(cc);
 }
 
-int group_holds_only_sticky(struct group_ctx* gc)
+int group_holds_only_sticky(Group_ctx* gc)
 {
-	struct screen_ctx* sc = gc->sc;
-	struct client_ctx* cc;
+	Screen_ctx* sc = gc->sc;
+	Client_ctx* cc;
 
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	{
@@ -176,10 +176,10 @@ int group_holds_only_sticky(struct group_ctx* gc)
 	return 1;
 }
 
-int group_holds_only_hidden(struct group_ctx* gc)
+int group_holds_only_hidden(Group_ctx* gc)
 {
-	struct screen_ctx* sc = gc->sc;
-	struct client_ctx* cc;
+	Screen_ctx* sc = gc->sc;
+	Client_ctx* cc;
 
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	{
@@ -189,9 +189,9 @@ int group_holds_only_hidden(struct group_ctx* gc)
 	return 1;
 }
 
-void group_only(struct screen_ctx* sc, int idx)
+void group_only(Screen_ctx* sc, int idx)
 {
-	struct group_ctx* gc;
+	Group_ctx* gc;
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	{
@@ -202,9 +202,9 @@ void group_only(struct screen_ctx* sc, int idx)
 	}
 }
 
-void group_toggle(struct screen_ctx* sc, int idx)
+void group_toggle(Screen_ctx* sc, int idx)
 {
-	struct group_ctx* gc;
+	Group_ctx* gc;
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	{
@@ -217,9 +217,9 @@ void group_toggle(struct screen_ctx* sc, int idx)
 	}
 }
 
-void group_toggle_all(struct screen_ctx* sc)
+void group_toggle_all(Screen_ctx* sc)
 {
-	struct group_ctx* gc;
+	Group_ctx* gc;
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	{
@@ -231,10 +231,10 @@ void group_toggle_all(struct screen_ctx* sc)
 	sc->hideall = !sc->hideall;
 }
 
-void group_close(struct screen_ctx* sc, int idx)
+void group_close(Screen_ctx* sc, int idx)
 {
-	struct group_ctx* gc;
-	struct client_ctx* cc;
+	Group_ctx* gc;
+	Client_ctx* cc;
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	{
@@ -248,9 +248,9 @@ void group_close(struct screen_ctx* sc, int idx)
 	}
 }
 
-void group_cycle(struct screen_ctx* sc, int flags)
+void group_cycle(Screen_ctx* sc, int flags)
 {
-	struct group_ctx *newgc, *oldgc, *showgroup = nullptr;
+	Group_ctx *newgc, *oldgc, *showgroup = nullptr;
 
 	oldgc = sc->group_active;
 
@@ -275,35 +275,35 @@ void group_cycle(struct screen_ctx* sc, int flags)
 		group_set_active(showgroup);
 }
 
-static struct group_ctx* group_next(struct group_ctx* gc)
+static Group_ctx* group_next(Group_ctx* gc)
 {
-	struct screen_ctx* sc = gc->sc;
-	struct group_ctx* newgc;
+	Screen_ctx* sc = gc->sc;
+	Group_ctx* newgc;
 
 	return (((newgc = TAILQ_NEXT(gc, entry)) != nullptr) ? newgc : TAILQ_FIRST(&sc->groupq));
 }
 
-static struct group_ctx* group_prev(struct group_ctx* gc)
+static Group_ctx* group_prev(Group_ctx* gc)
 {
-	struct screen_ctx* sc = gc->sc;
-	struct group_ctx* newgc;
+	Screen_ctx* sc = gc->sc;
+	Group_ctx* newgc;
 
 	return (((newgc = TAILQ_PREV(gc, group_q, entry)) != nullptr)
 	            ? newgc
 	            : TAILQ_LAST(&sc->groupq, group_q));
 }
 
-int group_restore(struct client_ctx* cc)
+int group_restore(Client_ctx* cc)
 {
-	struct screen_ctx* sc = cc->sc;
-	struct group_ctx* gc;
+	Screen_ctx* sc = cc->sc;
+	Group_ctx* gc;
 	int num;
 	long grpnum;
 
 	if (!xu_ewmh_get_net_wm_desktop(cc, &grpnum)) return 0;
 
 	num = (grpnum == -1) ? 0 : grpnum;
-	num = std::min(num, (Conf.ngroups - 1));
+	num = std::min(num, (conf.ngroups - 1));
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	{
@@ -315,16 +315,16 @@ int group_restore(struct client_ctx* cc)
 	return 0;
 }
 
-int group_autogroup(struct client_ctx* cc)
+int group_autogroup(Client_ctx* cc)
 {
-	struct screen_ctx* sc = cc->sc;
-	struct autogroup* ag;
-	struct group_ctx* gc;
+	Screen_ctx* sc = cc->sc;
+	Autogroup* ag;
+	Group_ctx* gc;
 	int num = -1, both_match = 0;
 
 	if (cc->res_class == nullptr || cc->res_name == nullptr) return 0;
 
-	TAILQ_FOREACH(ag, &Conf.autogroupq, entry)
+	TAILQ_FOREACH(ag, &conf.autogroupq, entry)
 	{
 		if (strcmp(ag->wclass, cc->res_class) == 0) {
 			if ((ag->name != nullptr) && (strcmp(ag->name, cc->res_name) == 0)) {

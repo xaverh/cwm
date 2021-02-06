@@ -24,6 +24,7 @@
 #include "calmwm.hxx"
 #include "queue.hxx"
 
+#include <atomic>
 #include <cerrno>
 #include <climits>
 #include <csignal>
@@ -39,15 +40,15 @@
 
 #define HASH_MARKER "|1|"
 
-extern sig_atomic_t cwm_status;
+extern std::atomic<int> cwm_status;
 
 static void kbfunc_amount(int, int, int*, int*);
-static void kbfunc_client_move_kb(void*, struct cargs*);
-static void kbfunc_client_move_mb(void*, struct cargs*);
-static void kbfunc_client_resize_kb(void*, struct cargs*);
-static void kbfunc_client_resize_mb(void*, struct cargs*);
+static void kbfunc_client_move_kb(void*, Cargs*);
+static void kbfunc_client_move_mb(void*, Cargs*);
+static void kbfunc_client_resize_kb(void*, Cargs*);
+static void kbfunc_client_resize_mb(void*, Cargs*);
 
-void kbfunc_cwm_status(void* ctx, struct cargs* cargs)
+void kbfunc_cwm_status(void* ctx, Cargs* cargs)
 {
 	cwm_status = cargs->flag;
 }
@@ -66,19 +67,19 @@ static void kbfunc_amount(int flags, int amt, int* mx, int* my)
 	}
 }
 
-void kbfunc_ptrmove(void* ctx, struct cargs* cargs)
+void kbfunc_ptrmove(void* ctx, Cargs* cargs)
 {
-	struct screen_ctx* sc = (screen_ctx*)ctx;
+	Screen_ctx* sc = (Screen_ctx*)ctx;
 	int x, y;
 	int mx = 0, my = 0;
 
-	kbfunc_amount(cargs->flag, Conf.mamount, &mx, &my);
+	kbfunc_amount(cargs->flag, conf.mamount, &mx, &my);
 
 	xu_ptr_get(sc->rootwin, &x, &y);
 	xu_ptr_set(sc->rootwin, x + mx, y + my);
 }
 
-void kbfunc_client_move(void* ctx, struct cargs* cargs)
+void kbfunc_client_move(void* ctx, Cargs* cargs)
 {
 	if (cargs->xev == cwm::Xev::btn)
 		kbfunc_client_move_mb(ctx, cargs);
@@ -86,7 +87,7 @@ void kbfunc_client_move(void* ctx, struct cargs* cargs)
 		kbfunc_client_move_kb(ctx, cargs);
 }
 
-void kbfunc_client_resize(void* ctx, struct cargs* cargs)
+void kbfunc_client_resize(void* ctx, Cargs* cargs)
 {
 	if (cargs->xev == cwm::Xev::btn)
 		kbfunc_client_resize_mb(ctx, cargs);
@@ -94,16 +95,16 @@ void kbfunc_client_resize(void* ctx, struct cargs* cargs)
 		kbfunc_client_resize_kb(ctx, cargs);
 }
 
-static void kbfunc_client_move_kb(void* ctx, struct cargs* cargs)
+static void kbfunc_client_move_kb(void* ctx, Cargs* cargs)
 {
-	struct client_ctx* cc = (client_ctx*)ctx;
-	struct screen_ctx* sc = cc->sc;
-	struct geom area;
+	Client_ctx* cc = (Client_ctx*)ctx;
+	Screen_ctx* sc = cc->sc;
+	Geom area;
 	int mx = 0, my = 0;
 
 	if (cc->flags & CLIENT_FREEZE) return;
 
-	kbfunc_amount(cargs->flag, Conf.mamount, &mx, &my);
+	kbfunc_amount(cargs->flag, conf.mamount, &mx, &my);
 
 	cc->geom.x += mx;
 	if (cc->geom.x < -(cc->geom.w + cc->bwidth - 1)) cc->geom.x = -(cc->geom.w + cc->bwidth - 1);
@@ -129,13 +130,13 @@ static void kbfunc_client_move_kb(void* ctx, struct cargs* cargs)
 	XSync(X_Dpy, True);
 }
 
-static void kbfunc_client_move_mb(void* ctx, struct cargs* cargs)
+static void kbfunc_client_move_mb(void* ctx, Cargs* cargs)
 {
-	struct client_ctx* cc = (client_ctx*)ctx;
+	Client_ctx* cc = (Client_ctx*)ctx;
 	XEvent ev;
 	Time ltime = 0;
-	struct screen_ctx* sc = cc->sc;
-	struct geom area;
+	Screen_ctx* sc = cc->sc;
+	Geom area;
 	int move = 1;
 
 	client_raise(cc);
@@ -151,7 +152,7 @@ static void kbfunc_client_move_mb(void* ctx, struct cargs* cargs)
 	                 GrabModeAsync,
 	                 GrabModeAsync,
 	                 None,
-	                 Conf.cursor[CF_MOVE],
+	                 conf.cursor[CF_MOVE],
 	                 CurrentTime)
 	    != GrabSuccess)
 		return;
@@ -191,15 +192,15 @@ static void kbfunc_client_move_mb(void* ctx, struct cargs* cargs)
 	XUngrabPointer(X_Dpy, CurrentTime);
 }
 
-static void kbfunc_client_resize_kb(void* ctx, struct cargs* cargs)
+static void kbfunc_client_resize_kb(void* ctx, Cargs* cargs)
 {
-	struct client_ctx* cc = (client_ctx*)ctx;
+	Client_ctx* cc = (Client_ctx*)ctx;
 	int mx = 0, my = 0;
 	int amt = 1;
 
 	if (cc->flags & CLIENT_FREEZE) return;
 
-	if (!(cc->hint.flags & PResizeInc)) amt = Conf.mamount;
+	if (!(cc->hint.flags & PResizeInc)) amt = conf.mamount;
 
 	kbfunc_amount(cargs->flag, amt, &mx, &my);
 
@@ -213,12 +214,12 @@ static void kbfunc_client_resize_kb(void* ctx, struct cargs* cargs)
 	XSync(X_Dpy, True);
 }
 
-static void kbfunc_client_resize_mb(void* ctx, struct cargs* cargs)
+static void kbfunc_client_resize_mb(void* ctx, Cargs* cargs)
 {
-	struct client_ctx* cc = (client_ctx*)ctx;
+	Client_ctx* cc = (Client_ctx*)ctx;
 	XEvent ev;
 	Time ltime = 0;
-	struct screen_ctx* sc = cc->sc;
+	Screen_ctx* sc = cc->sc;
 	int resize = 1;
 
 	if (cc->flags & CLIENT_FREEZE) return;
@@ -235,7 +236,7 @@ static void kbfunc_client_resize_mb(void* ctx, struct cargs* cargs)
 	                 GrabModeAsync,
 	                 GrabModeAsync,
 	                 None,
-	                 Conf.cursor[CF_RESIZE],
+	                 conf.cursor[CF_RESIZE],
 	                 CurrentTime)
 	    != GrabSuccess)
 		return;
@@ -267,11 +268,11 @@ static void kbfunc_client_resize_mb(void* ctx, struct cargs* cargs)
 	client_ptr_inbound(cc, 0);
 }
 
-void kbfunc_client_snap(void* ctx, struct cargs* cargs)
+void kbfunc_client_snap(void* ctx, Cargs* cargs)
 {
-	struct client_ctx* cc = (client_ctx*)ctx;
-	struct screen_ctx* sc = cc->sc;
-	struct geom area;
+	Client_ctx* cc = (Client_ctx*)ctx;
+	Screen_ctx* sc = cc->sc;
+	Geom area;
 	int flags;
 
 	area = screen_area(sc, cc->geom.x + cc->geom.w / 2, cc->geom.y + cc->geom.h / 2, 1);
@@ -299,71 +300,71 @@ void kbfunc_client_snap(void* ctx, struct cargs* cargs)
 	client_ptr_inbound(cc, 1);
 }
 
-void kbfunc_client_close(void* ctx, struct cargs* cargs)
+void kbfunc_client_close(void* ctx, Cargs* cargs)
 {
-	client_close((client_ctx*)ctx);
+	client_close((Client_ctx*)ctx);
 }
 
-void kbfunc_client_lower(void* ctx, struct cargs* cargs)
+void kbfunc_client_lower(void* ctx, Cargs* cargs)
 {
-	client_ptr_save((client_ctx*)ctx);
-	client_lower((client_ctx*)ctx);
+	client_ptr_save((Client_ctx*)ctx);
+	client_lower((Client_ctx*)ctx);
 }
 
-void kbfunc_client_raise(void* ctx, struct cargs* cargs)
+void kbfunc_client_raise(void* ctx, Cargs* cargs)
 {
-	client_raise((client_ctx*)ctx);
+	client_raise((Client_ctx*)ctx);
 }
 
-void kbfunc_client_hide(void* ctx, struct cargs* cargs)
+void kbfunc_client_hide(void* ctx, Cargs* cargs)
 {
-	client_hide((client_ctx*)ctx);
+	client_hide((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_freeze(void* ctx, struct cargs* cargs)
+void kbfunc_client_toggle_freeze(void* ctx, Cargs* cargs)
 {
-	client_toggle_freeze((client_ctx*)ctx);
+	client_toggle_freeze((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_sticky(void* ctx, struct cargs* cargs)
+void kbfunc_client_toggle_sticky(void* ctx, Cargs* cargs)
 {
-	client_toggle_sticky((client_ctx*)ctx);
+	client_toggle_sticky((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_fullscreen(void* ctx, struct cargs* cargs)
+void kbfunc_client_toggle_fullscreen(void* ctx, Cargs* cargs)
 {
-	client_toggle_fullscreen((client_ctx*)ctx);
+	client_toggle_fullscreen((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_maximize(void* ctx, struct cargs* cargs)
+void kbfunc_client_toggle_maximize(void* ctx, Cargs* cargs)
 {
-	client_toggle_maximize((client_ctx*)ctx);
+	client_toggle_maximize((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_hmaximize(void* ctx, struct cargs* cargs)
+void kbfunc_client_toggle_hmaximize(void* ctx, Cargs* cargs)
 {
-	client_toggle_hmaximize((client_ctx*)ctx);
+	client_toggle_hmaximize((Client_ctx*)ctx);
 }
 
-void kbfunc_client_toggle_vmaximize(void* ctx, struct cargs* cargs)
+void kbfunc_client_toggle_vmaximize(void* ctx, Cargs* cargs)
 {
-	client_toggle_vmaximize((client_ctx*)ctx);
+	client_toggle_vmaximize((Client_ctx*)ctx);
 }
 
-void kbfunc_client_htile(void* ctx, struct cargs* cargs)
+void kbfunc_client_htile(void* ctx, Cargs* cargs)
 {
-	client_htile((client_ctx*)ctx);
+	client_htile((Client_ctx*)ctx);
 }
 
-void kbfunc_client_vtile(void* ctx, struct cargs* cargs)
+void kbfunc_client_vtile(void* ctx, Cargs* cargs)
 {
-	client_vtile((client_ctx*)ctx);
+	client_vtile((Client_ctx*)ctx);
 }
 
-void kbfunc_client_cycle(void* ctx, struct cargs* cargs)
+void kbfunc_client_cycle(void* ctx, Cargs* cargs)
 {
-	struct screen_ctx* sc = (screen_ctx*)ctx;
-	struct client_ctx *newcc, *oldcc, *prevcc;
+	Screen_ctx* sc = (Screen_ctx*)ctx;
+	Client_ctx *newcc, *oldcc, *prevcc;
 	int again = 1, flags = cargs->flag;
 
 	/* For X apps that ignore/steal events. */
@@ -408,9 +409,9 @@ void kbfunc_client_cycle(void* ctx, struct cargs* cargs)
 	client_ptr_warp(newcc);
 }
 
-void kbfunc_client_toggle_group(void* ctx, struct cargs* cargs)
+void kbfunc_client_toggle_group(void* ctx, Cargs* cargs)
 {
-	struct client_ctx* cc = (client_ctx*)ctx;
+	Client_ctx* cc = (Client_ctx*)ctx;
 
 	/* For X apps that ignore/steal events. */
 	if (cargs->xev == cwm::Xev::key)
@@ -419,41 +420,41 @@ void kbfunc_client_toggle_group(void* ctx, struct cargs* cargs)
 	group_toggle_membership(cc);
 }
 
-void kbfunc_client_movetogroup(void* ctx, struct cargs* cargs)
+void kbfunc_client_movetogroup(void* ctx, Cargs* cargs)
 {
-	group_movetogroup((client_ctx*)ctx, cargs->flag);
+	group_movetogroup((Client_ctx*)ctx, cargs->flag);
 }
 
-void kbfunc_group_only(void* ctx, struct cargs* cargs)
+void kbfunc_group_only(void* ctx, Cargs* cargs)
 {
-	group_only((screen_ctx*)ctx, cargs->flag);
+	group_only((Screen_ctx*)ctx, cargs->flag);
 }
 
-void kbfunc_group_toggle(void* ctx, struct cargs* cargs)
+void kbfunc_group_toggle(void* ctx, Cargs* cargs)
 {
-	group_toggle((screen_ctx*)ctx, cargs->flag);
+	group_toggle((Screen_ctx*)ctx, cargs->flag);
 }
 
-void kbfunc_group_toggle_all(void* ctx, struct cargs* cargs)
+void kbfunc_group_toggle_all(void* ctx, Cargs* cargs)
 {
-	group_toggle_all((screen_ctx*)ctx);
+	group_toggle_all((Screen_ctx*)ctx);
 }
 
-void kbfunc_group_close(void* ctx, struct cargs* cargs)
+void kbfunc_group_close(void* ctx, Cargs* cargs)
 {
-	group_close((screen_ctx*)ctx, cargs->flag);
+	group_close((Screen_ctx*)ctx, cargs->flag);
 }
 
-void kbfunc_group_cycle(void* ctx, struct cargs* cargs)
+void kbfunc_group_cycle(void* ctx, Cargs* cargs)
 {
-	group_cycle((screen_ctx*)ctx, cargs->flag);
+	group_cycle((Screen_ctx*)ctx, cargs->flag);
 }
 
-void kbfunc_menu_client(void* ctx, struct cargs* cargs)
+void kbfunc_menu_client(void* ctx, Cargs* cargs)
 {
-	struct screen_ctx* sc = (screen_ctx*)ctx;
-	struct client_ctx *cc, *old_cc;
-	struct menu* mi;
+	Screen_ctx* sc = (Screen_ctx*)ctx;
+	Client_ctx *cc, *old_cc;
+	Menu* mi;
 	struct menu_q menuq;
 	int mflags = 0;
 
@@ -474,7 +475,7 @@ void kbfunc_menu_client(void* ctx, struct cargs* cargs)
 	                      search_match_client,
 	                      search_print_client))
 	    != nullptr) {
-		cc = (struct client_ctx*)mi->ctx;
+		cc = (Client_ctx*)mi->ctx;
 		client_show(cc);
 		if ((old_cc = client_current(sc)) != nullptr) client_ptr_save(old_cc);
 		client_ptr_warp(cc);
@@ -483,18 +484,18 @@ void kbfunc_menu_client(void* ctx, struct cargs* cargs)
 	menuq_clear(&menuq);
 }
 
-void kbfunc_menu_cmd(void* ctx, struct cargs* cargs)
+void kbfunc_menu_cmd(void* ctx, Cargs* cargs)
 {
-	struct screen_ctx* sc = (screen_ctx*)ctx;
-	struct cmd_ctx* cmd;
-	struct menu* mi;
+	Screen_ctx* sc = (Screen_ctx*)ctx;
+	Cmd_ctx* cmd;
+	Menu* mi;
 	struct menu_q menuq;
 	int mflags = 0;
 
 	if (cargs->xev == cwm::Xev::btn) mflags |= CWM_MENU_LIST;
 
 	TAILQ_INIT(&menuq);
-	TAILQ_FOREACH(cmd, &Conf.cmdq, entry)
+	TAILQ_FOREACH(cmd, &conf.cmdq, entry)
 	{
 		if ((strcmp(cmd->name, "lock") == 0) || (strcmp(cmd->name, "term") == 0)) continue;
 		menuq_add(&menuq, cmd, nullptr);
@@ -508,18 +509,18 @@ void kbfunc_menu_cmd(void* ctx, struct cargs* cargs)
 	                      search_match_cmd,
 	                      search_print_cmd))
 	    != nullptr) {
-		cmd = (struct cmd_ctx*)mi->ctx;
+		cmd = (Cmd_ctx*)mi->ctx;
 		u_spawn(cmd->path);
 	}
 
 	menuq_clear(&menuq);
 }
 
-void kbfunc_menu_group(void* ctx, struct cargs* cargs)
+void kbfunc_menu_group(void* ctx, Cargs* cargs)
 {
-	struct screen_ctx* sc = (screen_ctx*)ctx;
-	struct group_ctx* gc;
-	struct menu* mi;
+	Screen_ctx* sc = (Screen_ctx*)ctx;
+	Group_ctx* gc;
+	Menu* mi;
 	struct menu_q menuq;
 	int mflags = 0;
 
@@ -540,50 +541,50 @@ void kbfunc_menu_group(void* ctx, struct cargs* cargs)
 	                      search_match_group,
 	                      search_print_group))
 	    != nullptr) {
-		gc = (struct group_ctx*)mi->ctx;
+		gc = (Group_ctx*)mi->ctx;
 		(group_holds_only_hidden(gc)) ? group_show(gc) : group_hide(gc);
 	}
 
 	menuq_clear(&menuq);
 }
 
-void kbfunc_menu_wm(void* ctx, struct cargs* cargs)
+void kbfunc_menu_wm(void* ctx, Cargs* cargs)
 {
-	struct screen_ctx* sc = (screen_ctx*)ctx;
-	struct cmd_ctx* wm;
-	struct menu* mi;
+	Screen_ctx* sc = (Screen_ctx*)ctx;
+	Cmd_ctx* wm;
+	Menu* mi;
 	struct menu_q menuq;
 	int mflags = 0;
 
 	if (cargs->xev == cwm::Xev::btn) mflags |= CWM_MENU_LIST;
 
 	TAILQ_INIT(&menuq);
-	TAILQ_FOREACH(wm, &Conf.wmq, entry)
+	TAILQ_FOREACH(wm, &conf.wmq, entry)
 	menuq_add(&menuq, wm, nullptr);
 
 	if ((mi = menu_filter(sc, &menuq, "wm", nullptr, mflags, search_match_wm, search_print_wm))
 	    != nullptr) {
-		wm = (struct cmd_ctx*)mi->ctx;
-		free(Conf.wm_argv);
-		Conf.wm_argv = xstrdup(wm->path);
-		cwm_status = CWM_EXEC_WM;
+		wm = (Cmd_ctx*)mi->ctx;
+		free(conf.wm_argv);
+		conf.wm_argv = xstrdup(wm->path);
+		cwm_status = Cwm_status::CWM_EXEC_WM;
 	}
 
 	menuq_clear(&menuq);
 }
 
-void kbfunc_menu_exec(void* ctx, struct cargs* cargs)
+void kbfunc_menu_exec(void* ctx, Cargs* cargs)
 {
 #define NPATHS 256
-	struct screen_ctx* sc = (screen_ctx*)ctx;
+	Screen_ctx* sc = (Screen_ctx*)ctx;
 	char **ap, *paths[NPATHS], *path, *pathcpy;
 	char tpath[PATH_MAX];
 	struct stat sb;
 	DIR* dirp;
 	struct dirent* dp;
-	struct menu* mi;
+	Menu* mi;
 	struct menu_q menuq;
-	int l, i;
+	int i;
 	int mflags = (CWM_MENU_DUMMY | CWM_MENU_FILE);
 
 	TAILQ_INIT(&menuq);
@@ -600,8 +601,10 @@ void kbfunc_menu_exec(void* ctx, struct cargs* cargs)
 
 		while ((dp = readdir(dirp)) != nullptr) {
 			(void)memset(tpath, '\0', sizeof(tpath));
-			l = snprintf(tpath, sizeof(tpath), "%s/%s", paths[i], dp->d_name);
-			if (l == -1 || l >= sizeof(tpath)) continue;
+
+			if (auto l {snprintf(tpath, sizeof(tpath), "%s/%s", paths[i], dp->d_name)};
+			    l == -1 || l >= sizeof(tpath))
+				continue;
 			/* Skip everything but regular files and symlinks. */
 			if (dp->d_type != DT_REG && dp->d_type != DT_LNK) {
 				/* lstat(2) in case d_type isn't supported. */
@@ -625,11 +628,11 @@ out:
 	menuq_clear(&menuq);
 }
 
-void kbfunc_menu_ssh(void* ctx, struct cargs* cargs)
+void kbfunc_menu_ssh(void* ctx, Cargs* cargs)
 {
-	struct screen_ctx* sc = (screen_ctx*)ctx;
-	struct cmd_ctx* cmd;
-	struct menu* mi;
+	Screen_ctx* sc = (Screen_ctx*)ctx;
+	Cmd_ctx* cmd;
+	Menu* mi;
 	struct menu_q menuq;
 	FILE* fp;
 	char *buf, *lbuf, *p;
@@ -640,14 +643,14 @@ void kbfunc_menu_ssh(void* ctx, struct cargs* cargs)
 	ssize_t slen;
 	int mflags = (CWM_MENU_DUMMY);
 
-	TAILQ_FOREACH(cmd, &Conf.cmdq, entry)
+	TAILQ_FOREACH(cmd, &conf.cmdq, entry)
 	{
 		if (strcmp(cmd->name, "term") == 0) break;
 	}
 	TAILQ_INIT(&menuq);
 
-	if ((fp = fopen(Conf.known_hosts, "r")) == nullptr) {
-		warn("%s: %s", __func__, Conf.known_hosts);
+	if ((fp = fopen(conf.known_hosts, "r")) == nullptr) {
+		warn("%s: %s", __func__, conf.known_hosts);
 		goto menu;
 	}
 
@@ -687,10 +690,10 @@ out:
 	menuq_clear(&menuq);
 }
 
-void kbfunc_client_menu_label(void* ctx, struct cargs* cargs)
+void kbfunc_client_menu_label(void* ctx, Cargs* cargs)
 {
-	struct client_ctx* cc = (client_ctx*)ctx;
-	struct menu* mi;
+	Client_ctx* cc = (Client_ctx*)ctx;
+	Menu* mi;
 	struct menu_q menuq;
 	int mflags = (CWM_MENU_DUMMY);
 
@@ -712,26 +715,26 @@ void kbfunc_client_menu_label(void* ctx, struct cargs* cargs)
 	free(mi);
 }
 
-void kbfunc_exec_cmd(void* ctx, struct cargs* cargs)
+void kbfunc_exec_cmd(void* ctx, Cargs* cargs)
 {
 	u_spawn(cargs->cmd);
 }
 
-void kbfunc_exec_term(void* ctx, struct cargs* cargs)
+void kbfunc_exec_term(void* ctx, Cargs* cargs)
 {
-	struct cmd_ctx* cmd;
+	Cmd_ctx* cmd;
 
-	TAILQ_FOREACH(cmd, &Conf.cmdq, entry)
+	TAILQ_FOREACH(cmd, &conf.cmdq, entry)
 	{
 		if (strcmp(cmd->name, "term") == 0) u_spawn(cmd->path);
 	}
 }
 
-void kbfunc_exec_lock(void* ctx, struct cargs* cargs)
+void kbfunc_exec_lock(void* ctx, Cargs* cargs)
 {
-	struct cmd_ctx* cmd;
+	Cmd_ctx* cmd;
 
-	TAILQ_FOREACH(cmd, &Conf.cmdq, entry)
+	TAILQ_FOREACH(cmd, &conf.cmdq, entry)
 	{
 		if (strcmp(cmd->name, "lock") == 0) u_spawn(cmd->path);
 	}

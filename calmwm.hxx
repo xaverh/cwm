@@ -23,24 +23,6 @@
 
 #include "queue.hxx"
 
-#include <cstdio>
-#include <sys/param.h>
-
-/* prototypes for portable-included functions */
-char* fgetln(FILE*, size_t*);
-long long strtonum(const char*, long long, long long, const char**);
-
-#ifdef strlcat
-#define HAVE_STRLCAT
-#else
-size_t strlcat(char*, const char*, size_t);
-#endif
-#ifdef strlcpy
-#define HAVE_STRLCPY
-#else
-size_t strlcpy(char*, const char*, size_t);
-#endif
-
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xft/Xft.h>
@@ -50,36 +32,48 @@ size_t strlcpy(char*, const char*, size_t);
 #include <X11/cursorfont.h>
 #include <X11/extensions/Xrandr.h>
 #include <X11/keysym.h>
+#include <array>
+#include <cstdio>
+#include <sys/param.h>
 
-#ifndef nitems
-#define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
-#endif
+/* prototypes for portable-included functions */
+long long strtonum(char const*, long long, long long, char const**);
+size_t strlcat(char*, char const*, size_t);
+size_t strlcpy(char*, char const*, size_t);
 
-static constexpr auto BUTTONMASK {ButtonPressMask | ButtonReleaseMask};
-static constexpr auto MOUSEMASK {BUTTONMASK | PointerMotionMask};
-static constexpr auto IGNOREMODMASK {LockMask | Mod2Mask | 0x2000};
+template<typename T>
+constexpr auto nitems(T const& i)
+{
+	return sizeof(i) / sizeof(i[0]);
+}
+
+static constexpr unsigned BUTTONMASK {ButtonPressMask | ButtonReleaseMask};
+static constexpr unsigned MOUSEMASK {BUTTONMASK | PointerMotionMask};
+static constexpr unsigned IGNOREMODMASK {LockMask | Mod2Mask | 0x2000};
 
 /* direction/amount */
-static constexpr auto CWM_UP {0x0001};
-static constexpr auto CWM_DOWN {0x0002};
-static constexpr auto CWM_LEFT {0x0004};
-static constexpr auto CWM_RIGHT {0x0008};
-static constexpr auto CWM_BIGAMOUNT {0x0010};
-static constexpr auto CWM_UP_BIG {CWM_UP | CWM_BIGAMOUNT};
-static constexpr auto CWM_DOWN_BIG {CWM_DOWN | CWM_BIGAMOUNT};
-static constexpr auto CWM_LEFT_BIG {CWM_LEFT | CWM_BIGAMOUNT};
-static constexpr auto CWM_RIGHT_BIG {CWM_RIGHT | CWM_BIGAMOUNT};
-static constexpr auto CWM_UP_RIGHT {CWM_UP | CWM_RIGHT};
-static constexpr auto CWM_UP_LEFT {CWM_UP | CWM_LEFT};
-static constexpr auto CWM_DOWN_RIGHT {CWM_DOWN | CWM_RIGHT};
-static constexpr auto CWM_DOWN_LEFT {CWM_DOWN | CWM_LEFT};
-static constexpr auto CWM_CYCLE_FORWARD {0x0001};
-static constexpr auto CWM_CYCLE_REVERSE {0x0002};
-static constexpr auto CWM_CYCLE_INGROUP {0x0004};
+static constexpr unsigned CWM_UP {0x0001};
+static constexpr unsigned CWM_DOWN {0x0002};
+static constexpr unsigned CWM_LEFT {0x0004};
+static constexpr unsigned CWM_RIGHT {0x0008};
+static constexpr unsigned CWM_BIGAMOUNT {0x0010};
+static constexpr unsigned CWM_UP_BIG {CWM_UP | CWM_BIGAMOUNT};
+static constexpr unsigned CWM_DOWN_BIG {CWM_DOWN | CWM_BIGAMOUNT};
+static constexpr unsigned CWM_LEFT_BIG {CWM_LEFT | CWM_BIGAMOUNT};
+static constexpr unsigned CWM_RIGHT_BIG {CWM_RIGHT | CWM_BIGAMOUNT};
+static constexpr unsigned CWM_UP_RIGHT {CWM_UP | CWM_RIGHT};
+static constexpr unsigned CWM_UP_LEFT {CWM_UP | CWM_LEFT};
+static constexpr unsigned CWM_DOWN_RIGHT {CWM_DOWN | CWM_RIGHT};
+static constexpr unsigned CWM_DOWN_LEFT {CWM_DOWN | CWM_LEFT};
+static constexpr unsigned CWM_CYCLE_FORWARD {0x0001};
+static constexpr unsigned CWM_CYCLE_REVERSE {0x0002};
+static constexpr unsigned CWM_CYCLE_INGROUP {0x0004};
 
-enum cwm_status { CWM_QUIT, CWM_RUNNING, CWM_EXEC_WM };
-enum cursor_font { CF_NORMAL, CF_MOVE, CF_RESIZE, CF_QUESTION, CF_NITEMS };
-enum color {
+enum Cwm_status { CWM_QUIT, CWM_RUNNING, CWM_EXEC_WM };
+
+enum Cursor_font : std::size_t { CF_NORMAL, CF_MOVE, CF_RESIZE, CF_QUESTION, CF_NITEMS };
+
+enum Color : std::size_t {
 	CWM_COLOR_BORDER_ACTIVE,
 	CWM_COLOR_BORDER_INACTIVE,
 	CWM_COLOR_BORDER_URGENCY,
@@ -92,57 +86,59 @@ enum color {
 	CWM_COLOR_NITEMS
 };
 
-struct geom {
+struct Geom {
 	int x;
 	int y;
 	int w;
 	int h;
 };
-struct gap {
+
+struct Gap {
 	int top;
 	int bottom;
 	int left;
 	int right;
 };
 
-struct winname {
-	TAILQ_ENTRY(winname) entry;
+struct Winname {
+	TAILQ_ENTRY(Winname) entry;
 	char* name;
 };
-TAILQ_HEAD(name_q, winname);
-TAILQ_HEAD(ignore_q, winname);
 
-static constexpr auto  CLIENT_HIDDEN {0x0001};
-static constexpr auto  CLIENT_IGNORE {0x0002};
-static constexpr auto  CLIENT_VMAXIMIZED {0x0004};
-static constexpr auto  CLIENT_HMAXIMIZED {0x0008};
-static constexpr auto  CLIENT_FREEZE {0x0010};
-static constexpr auto  CLIENT_GROUP {0x0020};
-static constexpr auto  CLIENT_UNGROUP {0x0040};
-static constexpr auto  CLIENT_INPUT {0x0080};
-static constexpr auto  CLIENT_WM_DELETE_WINDOW {0x0100};
-static constexpr auto  CLIENT_WM_TAKE_FOCUS {0x0200};
-static constexpr auto  CLIENT_URGENCY {0x0400};
-static constexpr auto  CLIENT_FULLSCREEN {0x0800};
-static constexpr auto  CLIENT_STICKY {0x1000};
-static constexpr auto  CLIENT_ACTIVE {0x2000};
-static constexpr auto  CLIENT_SKIP_PAGER {0x4000};
-static constexpr auto  CLIENT_SKIP_TASKBAR {0x8000};
+TAILQ_HEAD(name_q, Winname);
+TAILQ_HEAD(ignore_q, Winname);
 
-static constexpr auto  CLIENT_SKIP_CYCLE{CLIENT_HIDDEN | CLIENT_IGNORE | CLIENT_SKIP_TASKBAR | CLIENT_SKIP_PAGER};
-static constexpr auto  CLIENT_HIGHLIGHT {CLIENT_GROUP | CLIENT_UNGROUP};
-static constexpr auto  CLIENT_MAXFLAGS {CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED};
-static constexpr auto  CLIENT_MAXIMIZED {CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED};
+static constexpr unsigned CLIENT_HIDDEN {0x0001};
+static constexpr unsigned CLIENT_IGNORE {0x0002};
+static constexpr unsigned CLIENT_VMAXIMIZED {0x0004};
+static constexpr unsigned CLIENT_HMAXIMIZED {0x0008};
+static constexpr unsigned CLIENT_FREEZE {0x0010};
+static constexpr unsigned CLIENT_GROUP {0x0020};
+static constexpr unsigned CLIENT_UNGROUP {0x0040};
+static constexpr unsigned CLIENT_INPUT {0x0080};
+static constexpr unsigned CLIENT_WM_DELETE_WINDOW {0x0100};
+static constexpr unsigned CLIENT_WM_TAKE_FOCUS {0x0200};
+static constexpr unsigned CLIENT_URGENCY {0x0400};
+static constexpr unsigned CLIENT_FULLSCREEN {0x0800};
+static constexpr unsigned CLIENT_STICKY {0x1000};
+static constexpr unsigned CLIENT_ACTIVE {0x2000};
+static constexpr unsigned CLIENT_SKIP_PAGER {0x4000};
+static constexpr unsigned CLIENT_SKIP_TASKBAR {0x8000};
+static constexpr unsigned CLIENT_SKIP_CYCLE {CLIENT_HIDDEN | CLIENT_IGNORE | CLIENT_SKIP_TASKBAR
+                                             | CLIENT_SKIP_PAGER};
+static constexpr unsigned CLIENT_HIGHLIGHT {CLIENT_GROUP | CLIENT_UNGROUP};
+static constexpr unsigned CLIENT_MAXFLAGS {CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED};
+static constexpr unsigned CLIENT_MAXIMIZED {CLIENT_VMAXIMIZED | CLIENT_HMAXIMIZED};
 
-struct client_ctx {
-	TAILQ_ENTRY(client_ctx) entry;
-	struct screen_ctx* sc;
-	struct group_ctx* gc;
+struct Client_ctx {
+	TAILQ_ENTRY(Client_ctx) entry;
+	struct Screen_ctx* sc;
+	struct Group_ctx* gc;
 	Window win;
 	Colormap colormap;
 	int bwidth;  /* border width */
 	int obwidth; /* original border width */
-	struct geom geom, savegeom, fullgeom;
+	Geom geom, savegeom, fullgeom;
 	struct {
 		long flags; /* defined hints */
 		int basew;  /* desired width */
@@ -165,7 +161,7 @@ struct client_ctx {
 		int w; /* width */
 	} dim;
 
-	int flags;
+	unsigned flags;
 	int stackingorder;
 	struct name_q nameq;
 	char* name;
@@ -174,46 +170,48 @@ struct client_ctx {
 	char* res_name;    /* class hint */
 	int initial_state; /* wm hint */
 };
-TAILQ_HEAD(client_q, client_ctx);
+TAILQ_HEAD(client_q, Client_ctx);
 
-struct group_ctx {
-	TAILQ_ENTRY(group_ctx) entry;
-	struct screen_ctx* sc;
+struct Group_ctx {
+	TAILQ_ENTRY(Group_ctx) entry;
+	struct Screen_ctx* sc;
 	char* name;
 	int num;
 };
-TAILQ_HEAD(group_q, group_ctx);
 
-struct autogroup {
-	TAILQ_ENTRY(autogroup) entry;
+TAILQ_HEAD(group_q, Group_ctx);
+
+struct Autogroup {
+	TAILQ_ENTRY(Autogroup) entry;
 	char* wclass;
 	char* name;
 	int num;
 };
-TAILQ_HEAD(autogroup_q, autogroup);
 
-struct region_ctx {
-	TAILQ_ENTRY(region_ctx) entry;
+TAILQ_HEAD(autogroup_q, Autogroup);
+
+struct Region_ctx {
+	TAILQ_ENTRY(Region_ctx) entry;
 	int num;
-	struct geom view; /* viewable area */
-	struct geom work; /* workable area, gap-applied */
+	Geom view; /* viewable area */
+	Geom work; /* workable area, gap-applied */
 };
-TAILQ_HEAD(region_q, region_ctx);
+TAILQ_HEAD(region_q, Region_ctx);
 
-struct screen_ctx {
-	TAILQ_ENTRY(screen_ctx) entry;
+struct Screen_ctx {
+	TAILQ_ENTRY(Screen_ctx) entry;
 	int which;
 	Window rootwin;
 	int cycling;
 	int hideall;
 	int snapdist;
-	struct geom view; /* viewable area */
-	struct geom work; /* workable area, gap-applied */
-	struct gap gap;
+	Geom view; /* viewable area */
+	Geom work; /* workable area, gap-applied */
+	Gap gap;
 	struct client_q clientq;
 	struct region_q regionq;
 	struct group_q groupq;
-	struct group_ctx* group_active;
+	Group_ctx* group_active;
 	Colormap colormap;
 	Visual* visual;
 	struct {
@@ -223,58 +221,66 @@ struct screen_ctx {
 	XftColor xftcolor[CWM_COLOR_NITEMS];
 	XftFont* xftfont;
 };
-TAILQ_HEAD(screen_q, screen_ctx);
+
+TAILQ_HEAD(screen_q, Screen_ctx);
 
 namespace cwm {
 enum class Xev { key, btn };
 }
 
-struct cargs {
+struct Cargs {
 	char* cmd;
 	int flag;
 	cwm::Xev xev;
 };
-enum context { CWM_CONTEXT_NONE = 0, CWM_CONTEXT_CC, CWM_CONTEXT_SC };
-struct bind_ctx {
-	TAILQ_ENTRY(bind_ctx) entry;
-	void (*callback)(void*, struct cargs*);
-	struct cargs* cargs;
-	enum context context;
+
+enum class Context { none, cc, sc };
+
+struct Bind_ctx {
+	TAILQ_ENTRY(Bind_ctx) entry;
+	void (*callback)(void*, Cargs*);
+	Cargs* cargs;
+	enum Context context;
 	unsigned int modmask;
 	union {
 		KeySym keysym;
 		unsigned int button;
 	} press;
 };
-TAILQ_HEAD(keybind_q, bind_ctx);
-TAILQ_HEAD(mousebind_q, bind_ctx);
 
-struct cmd_ctx {
-	TAILQ_ENTRY(cmd_ctx) entry;
+TAILQ_HEAD(keybind_q, Bind_ctx);
+
+TAILQ_HEAD(mousebind_q, Bind_ctx);
+
+struct Cmd_ctx {
+	TAILQ_ENTRY(Cmd_ctx) entry;
 	char* name;
 	char* path;
 };
-TAILQ_HEAD(cmd_q, cmd_ctx);
-TAILQ_HEAD(wm_q, cmd_ctx);
 
-static constexpr auto CWM_MENU_DUMMY {0x0001};
-static constexpr auto CWM_MENU_FILE {0x0002};
-static constexpr auto CWM_MENU_LIST {0x0004};
-static constexpr auto CWM_MENU_WINDOW_ALL {0x0008};
-static constexpr auto CWM_MENU_WINDOW_HIDDEN {0x0010};
+TAILQ_HEAD(cmd_q, Cmd_ctx);
+
+TAILQ_HEAD(wm_q, Cmd_ctx);
+
+static constexpr unsigned CWM_MENU_DUMMY {0x0001};
+static constexpr unsigned CWM_MENU_FILE {0x0002};
+static constexpr unsigned CWM_MENU_LIST {0x0004};
+static constexpr unsigned CWM_MENU_WINDOW_ALL {0x0008};
+static constexpr unsigned CWM_MENU_WINDOW_HIDDEN {0x0010};
 
 static constexpr std::size_t MENU_MAXENTRY {200};
 
-struct menu {
-	TAILQ_ENTRY(menu) entry;
-	TAILQ_ENTRY(menu) resultentry;
+struct Menu {
+	TAILQ_ENTRY(Menu) entry;
+	TAILQ_ENTRY(Menu) resultentry;
 	char text[MENU_MAXENTRY + 1];
 	char print[MENU_MAXENTRY + 1];
 	void* ctx;
 	short dummy;
 	short abort;
 };
-TAILQ_HEAD(menu_q, menu);
+
+TAILQ_HEAD(menu_q, Menu);
 
 struct Conf {
 	struct keybind_q keybindq;
@@ -291,7 +297,7 @@ struct Conf {
 	int snapdist;
 	int htile;
 	int vtile;
-	struct gap gap;
+	Gap gap;
 	char* color[CWM_COLOR_NITEMS];
 	char* font;
 	char* wmname;
@@ -305,7 +311,7 @@ struct Conf {
 };
 
 /* MWM hints */
-static constexpr auto MWM_HINTS_ELEMENTS{ 3};
+static constexpr auto MWM_HINTS_ELEMENTS {3};
 static constexpr auto MWM_FLAGS_FUNCTIONS {1 << 0};
 static constexpr auto MWM_FLAGS_DECORATIONS {1 << 1};
 static constexpr auto MWM_FLAGS_INPUT_MODE {1 << 2};
@@ -330,7 +336,7 @@ struct mwm_hints {
 	unsigned long decorations;
 };
 
-enum cwmh {
+enum Cwmh : std::size_t {
 	WM_STATE,
 	WM_DELETE_WINDOW,
 	WM_TAKE_FOCUS,
@@ -340,7 +346,8 @@ enum cwmh {
 	WM_CHANGE_STATE,
 	CWMH_NITEMS
 };
-enum ewmh {
+
+enum Ewmh {
 	_NET_SUPPORTED,
 	_NET_SUPPORTING_WM_CHECK,
 	_NET_ACTIVE_WINDOW,
@@ -370,73 +377,74 @@ enum ewmh {
 	_CWM_WM_STATE_FREEZE,
 	EWMH_NITEMS
 };
+
 enum net_wm_state { _NET_WM_STATE_REMOVE, _NET_WM_STATE_ADD, _NET_WM_STATE_TOGGLE };
 
 extern Display* X_Dpy;
 extern Time Last_Event_Time;
-extern Atom cwmh[CWMH_NITEMS];
-extern Atom ewmh[EWMH_NITEMS];
+extern std::array<Atom, CWMH_NITEMS> cwmh;
+extern std::array<Atom, EWMH_NITEMS> ewmh;
 extern struct screen_q Screenq;
-extern struct Conf Conf;
+extern struct Conf conf;
 
 void usage();
 
-void client_apply_sizehints(struct client_ctx*);
-void client_close(struct client_ctx*);
-void client_config(struct client_ctx*);
-struct client_ctx* client_current(struct screen_ctx*);
-void client_draw_border(struct client_ctx*);
-struct client_ctx* client_find(Window);
-void client_get_sizehints(struct client_ctx*);
-void client_hide(struct client_ctx*);
-void client_htile(struct client_ctx*);
-int client_inbound(struct client_ctx*, int, int);
-struct client_ctx* client_init(Window, struct screen_ctx*);
-void client_lower(struct client_ctx*);
-void client_move(struct client_ctx*);
-void client_mtf(struct client_ctx*);
-struct client_ctx* client_next(struct client_ctx*);
-struct client_ctx* client_prev(struct client_ctx*);
-void client_ptr_inbound(struct client_ctx*, int);
-void client_ptr_save(struct client_ctx*);
-void client_ptr_warp(struct client_ctx*);
-void client_raise(struct client_ctx*);
-void client_remove(struct client_ctx*);
-void client_resize(struct client_ctx*, int);
-void client_set_active(struct client_ctx*);
-void client_set_name(struct client_ctx*);
-void client_show(struct client_ctx*);
+void client_apply_sizehints(Client_ctx*);
+void client_close(Client_ctx*);
+void client_config(Client_ctx*);
+Client_ctx* client_current(Screen_ctx*);
+void client_draw_border(Client_ctx*);
+Client_ctx* client_find(Window);
+void client_get_sizehints(Client_ctx*);
+void client_hide(Client_ctx*);
+void client_htile(Client_ctx*);
+int client_inbound(Client_ctx*, int, int);
+Client_ctx* client_init(Window, Screen_ctx*);
+void client_lower(Client_ctx*);
+void client_move(Client_ctx*);
+void client_mtf(Client_ctx*);
+Client_ctx* client_next(Client_ctx*);
+Client_ctx* client_prev(Client_ctx*);
+void client_ptr_inbound(Client_ctx*, int);
+void client_ptr_save(Client_ctx*);
+void client_ptr_warp(Client_ctx*);
+void client_raise(Client_ctx*);
+void client_remove(Client_ctx*);
+void client_resize(Client_ctx*, int);
+void client_set_active(Client_ctx*);
+void client_set_name(Client_ctx*);
+void client_show(Client_ctx*);
 int client_snapcalc(int, int, int, int, int);
-void client_toggle_hidden(struct client_ctx*);
-void client_toggle_hmaximize(struct client_ctx*);
-void client_toggle_fullscreen(struct client_ctx*);
-void client_toggle_freeze(struct client_ctx*);
-void client_toggle_maximize(struct client_ctx*);
-void client_toggle_skip_pager(struct client_ctx*);
-void client_toggle_skip_taskbar(struct client_ctx*);
-void client_toggle_sticky(struct client_ctx*);
-void client_toggle_vmaximize(struct client_ctx*);
-void client_transient(struct client_ctx*);
-void client_urgency(struct client_ctx*);
-void client_vtile(struct client_ctx*);
-void client_wm_hints(struct client_ctx*);
+void client_toggle_hidden(Client_ctx*);
+void client_toggle_hmaximize(Client_ctx*);
+void client_toggle_fullscreen(Client_ctx*);
+void client_toggle_freeze(Client_ctx*);
+void client_toggle_maximize(Client_ctx*);
+void client_toggle_skip_pager(Client_ctx*);
+void client_toggle_skip_taskbar(Client_ctx*);
+void client_toggle_sticky(Client_ctx*);
+void client_toggle_vmaximize(Client_ctx*);
+void client_transient(Client_ctx*);
+void client_urgency(Client_ctx*);
+void client_vtile(Client_ctx*);
+void client_wm_hints(Client_ctx*);
 
-void group_assign(struct group_ctx*, struct client_ctx*);
-int group_autogroup(struct client_ctx*);
-void group_cycle(struct screen_ctx*, int);
-void group_hide(struct group_ctx*);
-int group_holds_only_hidden(struct group_ctx*);
-int group_holds_only_sticky(struct group_ctx*);
-void group_init(struct screen_ctx*, int, const char*);
-void group_movetogroup(struct client_ctx*, int);
-void group_only(struct screen_ctx*, int);
-void group_close(struct screen_ctx*, int);
-int group_restore(struct client_ctx*);
-void group_show(struct group_ctx*);
-void group_toggle(struct screen_ctx*, int);
-void group_toggle_all(struct screen_ctx*);
-void group_toggle_membership(struct client_ctx*);
-void group_update_names(struct screen_ctx*);
+void group_assign(Group_ctx*, Client_ctx*);
+int group_autogroup(Client_ctx*);
+void group_cycle(Screen_ctx*, int);
+void group_hide(Group_ctx*);
+int group_holds_only_hidden(Group_ctx*);
+int group_holds_only_sticky(Group_ctx*);
+void group_init(Screen_ctx*, int, char const*);
+void group_movetogroup(Client_ctx*, int);
+void group_only(Screen_ctx*, int);
+void group_close(Screen_ctx*, int);
+int group_restore(Client_ctx*);
+void group_show(Group_ctx*);
+void group_toggle(Screen_ctx*, int);
+void group_toggle_all(Screen_ctx*);
+void group_toggle_membership(Client_ctx*);
+void group_update_names(Screen_ctx*);
 
 void search_match_client(struct menu_q*, struct menu_q*, char*);
 void search_match_cmd(struct menu_q*, struct menu_q*, char*);
@@ -445,86 +453,86 @@ void search_match_group(struct menu_q*, struct menu_q*, char*);
 void search_match_path(struct menu_q*, struct menu_q*, char*);
 void search_match_text(struct menu_q*, struct menu_q*, char*);
 void search_match_wm(struct menu_q*, struct menu_q*, char*);
-void search_print_client(struct menu*, int);
-void search_print_cmd(struct menu*, int);
-void search_print_group(struct menu*, int);
-void search_print_text(struct menu*, int);
-void search_print_wm(struct menu*, int);
+void search_print_client(Menu*, int);
+void search_print_cmd(Menu*, int);
+void search_print_group(Menu*, int);
+void search_print_text(Menu*, int);
+void search_print_wm(Menu*, int);
 
-struct region_ctx* region_find(struct screen_ctx*, int, int);
-void screen_assert_clients_within(struct screen_ctx*);
-struct geom screen_area(struct screen_ctx*, int, int, int);
-struct screen_ctx* screen_find(Window);
+Region_ctx* region_find(Screen_ctx*, int, int);
+void screen_assert_clients_within(Screen_ctx*);
+Geom screen_area(Screen_ctx*, int, int, int);
+Screen_ctx* screen_find(Window);
 void screen_init(int);
-void screen_prop_win_create(struct screen_ctx*, Window);
-void screen_prop_win_destroy(struct screen_ctx*);
-void screen_prop_win_draw(struct screen_ctx*, const char*, ...)
-    __attribute__((__format__(printf, 2, 3))) __attribute__((__nonnull__(2)));
-void screen_update_geometry(struct screen_ctx*);
-void screen_updatestackingorder(struct screen_ctx*);
+void screen_prop_win_create(Screen_ctx*, Window);
+void screen_prop_win_destroy(Screen_ctx*);
+void screen_prop_win_draw(Screen_ctx*, char const*, ...) __attribute__((__format__(printf, 2, 3)))
+__attribute__((__nonnull__(2)));
+void screen_update_geometry(Screen_ctx*);
+void screen_updatestackingorder(Screen_ctx*);
 
-void kbfunc_cwm_status(void*, struct cargs*);
-void kbfunc_ptrmove(void*, struct cargs*);
-void kbfunc_client_snap(void*, struct cargs*);
-void kbfunc_client_move(void*, struct cargs*);
-void kbfunc_client_resize(void*, struct cargs*);
-void kbfunc_client_close(void*, struct cargs*);
-void kbfunc_client_lower(void*, struct cargs*);
-void kbfunc_client_raise(void*, struct cargs*);
-void kbfunc_client_hide(void*, struct cargs*);
-void kbfunc_client_toggle_freeze(void*, struct cargs*);
-void kbfunc_client_toggle_sticky(void*, struct cargs*);
-void kbfunc_client_toggle_fullscreen(void*, struct cargs*);
-void kbfunc_client_toggle_maximize(void*, struct cargs*);
-void kbfunc_client_toggle_hmaximize(void*, struct cargs*);
-void kbfunc_client_toggle_vmaximize(void*, struct cargs*);
-void kbfunc_client_htile(void*, struct cargs*);
-void kbfunc_client_vtile(void*, struct cargs*);
-void kbfunc_client_cycle(void*, struct cargs*);
-void kbfunc_client_toggle_group(void*, struct cargs*);
-void kbfunc_client_movetogroup(void*, struct cargs*);
-void kbfunc_group_toggle(void*, struct cargs*);
-void kbfunc_group_only(void*, struct cargs*);
-void kbfunc_group_close(void*, struct cargs*);
-void kbfunc_group_cycle(void*, struct cargs*);
-void kbfunc_group_toggle_all(void*, struct cargs*);
-void kbfunc_menu_client(void*, struct cargs*);
-void kbfunc_menu_cmd(void*, struct cargs*);
-void kbfunc_menu_group(void*, struct cargs*);
-void kbfunc_menu_wm(void*, struct cargs*);
-void kbfunc_menu_exec(void*, struct cargs*);
-void kbfunc_menu_ssh(void*, struct cargs*);
-void kbfunc_client_menu_label(void*, struct cargs*);
-void kbfunc_exec_cmd(void*, struct cargs*);
-void kbfunc_exec_lock(void*, struct cargs*);
-void kbfunc_exec_term(void*, struct cargs*);
+void kbfunc_cwm_status(void*, Cargs*);
+void kbfunc_ptrmove(void*, Cargs*);
+void kbfunc_client_snap(void*, Cargs*);
+void kbfunc_client_move(void*, Cargs*);
+void kbfunc_client_resize(void*, Cargs*);
+void kbfunc_client_close(void*, Cargs*);
+void kbfunc_client_lower(void*, Cargs*);
+void kbfunc_client_raise(void*, Cargs*);
+void kbfunc_client_hide(void*, Cargs*);
+void kbfunc_client_toggle_freeze(void*, Cargs*);
+void kbfunc_client_toggle_sticky(void*, Cargs*);
+void kbfunc_client_toggle_fullscreen(void*, Cargs*);
+void kbfunc_client_toggle_maximize(void*, Cargs*);
+void kbfunc_client_toggle_hmaximize(void*, Cargs*);
+void kbfunc_client_toggle_vmaximize(void*, Cargs*);
+void kbfunc_client_htile(void*, Cargs*);
+void kbfunc_client_vtile(void*, Cargs*);
+void kbfunc_client_cycle(void*, Cargs*);
+void kbfunc_client_toggle_group(void*, Cargs*);
+void kbfunc_client_movetogroup(void*, Cargs*);
+void kbfunc_group_toggle(void*, Cargs*);
+void kbfunc_group_only(void*, Cargs*);
+void kbfunc_group_close(void*, Cargs*);
+void kbfunc_group_cycle(void*, Cargs*);
+void kbfunc_group_toggle_all(void*, Cargs*);
+void kbfunc_menu_client(void*, Cargs*);
+void kbfunc_menu_cmd(void*, Cargs*);
+void kbfunc_menu_group(void*, Cargs*);
+void kbfunc_menu_wm(void*, Cargs*);
+void kbfunc_menu_exec(void*, Cargs*);
+void kbfunc_menu_ssh(void*, Cargs*);
+void kbfunc_client_menu_label(void*, Cargs*);
+void kbfunc_exec_cmd(void*, Cargs*);
+void kbfunc_exec_lock(void*, Cargs*);
+void kbfunc_exec_term(void*, Cargs*);
 
-struct menu* menu_filter(struct screen_ctx*,
-                         struct menu_q*,
-                         const char*,
-                         const char*,
-                         int,
-                         void (*)(struct menu_q*, struct menu_q*, char*),
-                         void (*)(struct menu*, int));
-void menuq_add(struct menu_q*, void*, const char*, ...) __attribute__((__format__(printf, 3, 4)));
+Menu* menu_filter(Screen_ctx*,
+                  struct menu_q*,
+                  char const*,
+                  char const*,
+                  int,
+                  void (*)(struct menu_q*, struct menu_q*, char*),
+                  void (*)(Menu*, int));
+void menuq_add(struct menu_q*, void*, char const*, ...) __attribute__((__format__(printf, 3, 4)));
 void menuq_clear(struct menu_q*);
 
-int parse_config(const char*, struct Conf*);
+int parse_config(char const*, struct Conf*);
 
-void conf_autogroup(struct Conf*, int, const char*, const char*);
-int conf_bind_key(struct Conf*, const char*, const char*);
-int conf_bind_mouse(struct Conf*, const char*, const char*);
+void conf_autogroup(struct Conf*, int, char const*, char const*);
+int conf_bind_key(struct Conf*, char const*, char const*);
+int conf_bind_mouse(struct Conf*, char const*, char const*);
 void conf_clear(struct Conf*);
-void conf_client(struct client_ctx*);
-void conf_cmd_add(struct Conf*, const char*, const char*);
-void conf_wm_add(struct Conf*, const char*, const char*);
+void conf_client(Client_ctx*);
+void conf_cmd_add(struct Conf*, char const*, char const*);
+void conf_wm_add(struct Conf*, char const*, char const*);
 void conf_cursor(struct Conf*);
 void conf_grab_kbd(Window);
 void conf_grab_mouse(Window);
 void conf_init(struct Conf*);
-void conf_ignore(struct Conf*, const char*);
-void conf_screen(struct screen_ctx*);
-void conf_group(struct screen_ctx*);
+void conf_ignore(struct Conf*, char const*);
+void conf_screen(Screen_ctx*);
+void conf_group(Screen_ctx*);
 
 void xev_process();
 
@@ -538,38 +546,38 @@ void xu_send_clientmsg(Window, Atom, Time);
 void xu_xorcolor(XftColor, XftColor, XftColor*);
 
 void xu_atom_init();
-void xu_ewmh_net_supported(struct screen_ctx*);
-void xu_ewmh_net_supported_wm_check(struct screen_ctx*);
-void xu_ewmh_net_desktop_geometry(struct screen_ctx*);
-void xu_ewmh_net_desktop_viewport(struct screen_ctx*);
-void xu_ewmh_net_workarea(struct screen_ctx*);
-void xu_ewmh_net_client_list(struct screen_ctx*);
-void xu_ewmh_net_client_list_stacking(struct screen_ctx*);
-void xu_ewmh_net_active_window(struct screen_ctx*, Window);
-void xu_ewmh_net_number_of_desktops(struct screen_ctx*);
-void xu_ewmh_net_showing_desktop(struct screen_ctx*);
-void xu_ewmh_net_virtual_roots(struct screen_ctx*);
-void xu_ewmh_net_current_desktop(struct screen_ctx*);
-void xu_ewmh_net_desktop_names(struct screen_ctx*);
-int xu_ewmh_get_net_wm_desktop(struct client_ctx*, long*);
-void xu_ewmh_set_net_wm_desktop(struct client_ctx*);
-Atom* xu_ewmh_get_net_wm_state(struct client_ctx*, int*);
-void xu_ewmh_handle_net_wm_state_msg(struct client_ctx*, int, Atom, Atom);
-void xu_ewmh_set_net_wm_state(struct client_ctx*);
-void xu_ewmh_restore_net_wm_state(struct client_ctx*);
+void xu_ewmh_net_supported(Screen_ctx*);
+void xu_ewmh_net_supported_wm_check(Screen_ctx*);
+void xu_ewmh_net_desktop_geometry(Screen_ctx*);
+void xu_ewmh_net_desktop_viewport(Screen_ctx*);
+void xu_ewmh_net_workarea(Screen_ctx*);
+void xu_ewmh_net_client_list(Screen_ctx*);
+void xu_ewmh_net_client_list_stacking(Screen_ctx*);
+void xu_ewmh_net_active_window(Screen_ctx*, Window);
+void xu_ewmh_net_number_of_desktops(Screen_ctx*);
+void xu_ewmh_net_showing_desktop(Screen_ctx*);
+void xu_ewmh_net_virtual_roots(Screen_ctx*);
+void xu_ewmh_net_current_desktop(Screen_ctx*);
+void xu_ewmh_net_desktop_names(Screen_ctx*);
+int xu_ewmh_get_net_wm_desktop(Client_ctx*, long*);
+void xu_ewmh_set_net_wm_desktop(Client_ctx*);
+Atom* xu_ewmh_get_net_wm_state(Client_ctx*, int*);
+void xu_ewmh_handle_net_wm_state_msg(Client_ctx*, int, Atom, Atom);
+void xu_ewmh_set_net_wm_state(Client_ctx*);
+void xu_ewmh_restore_net_wm_state(Client_ctx*);
 
 char* u_argv(char* const*);
 void u_exec(char*);
 void u_spawn(char*);
-void log_debug(int, const char*, const char*, ...) __attribute__((__format__(printf, 3, 4)))
+void log_debug(int, char const*, char const*, ...) __attribute__((__format__(printf, 3, 4)))
 __attribute__((__nonnull__(3)));
 
 void* xcalloc(size_t, size_t);
 void* xmalloc(size_t);
 void* xreallocarray(void*, size_t, size_t);
-char* xstrdup(const char*);
-int xasprintf(char**, const char*, ...) __attribute__((__format__(printf, 2, 3)))
+char* xstrdup(char const*);
+int xasprintf(char**, char const*, ...) __attribute__((__format__(printf, 2, 3)))
 __attribute__((__nonnull__(2)));
-int xvasprintf(char**, const char*, va_list) __attribute__((__nonnull__(2)));
+int xvasprintf(char**, char const*, va_list) __attribute__((__nonnull__(2)));
 
 #endif /* _CALMWM_H_ */
