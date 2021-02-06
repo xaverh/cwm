@@ -322,7 +322,6 @@ void conf_clear(struct Conf* c)
 	Bind_ctx *kb, *mb;
 	Winname* wn;
 	Cmd_ctx *cmd, *wm;
-	int i;
 
 	while ((cmd = TAILQ_FIRST(&c->cmdq)) != nullptr) {
 		TAILQ_REMOVE(&c->cmdq, cmd, entry);
@@ -355,7 +354,7 @@ void conf_clear(struct Conf* c)
 		TAILQ_REMOVE(&c->mousebindq, mb, entry);
 		free(mb);
 	}
-	for (i = 0; i < CWM_COLOR_NITEMS; i++) free(c->color[i]);
+	for (std::size_t i = 0; i < CWM_COLOR_NITEMS; ++i) free(c->color[i]);
 
 	free(c->conf_file);
 	free(c->known_hosts);
