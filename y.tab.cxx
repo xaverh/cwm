@@ -11,7 +11,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <err.h>
-#include <iostream>
 #include <sys/types.h>
 
 TAILQ_HEAD(files, file) files = TAILQ_HEAD_INITIALIZER(files);
@@ -976,7 +975,6 @@ int Conf::parse()
 	int errors = 0;
 
 	FILE* stream = fopen(conf_file.c_str(), "r");
-	std::cerr << conf_file.c_str() << std::endl;
 	if (stream == nullptr) {
 		if (errno == ENOENT) return (0);
 		warn("%s", conf_file.c_str());

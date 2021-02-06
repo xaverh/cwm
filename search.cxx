@@ -53,7 +53,7 @@ static bool match_substr(std::string_view sub, std::string_view str, bool zeroid
 
 void search_match_client(struct menu_q* menuq, struct menu_q* resultq, char* search)
 {
-	std::array<Menu*, 3> tierp {0, 0, 0};
+	std::array<Menu*, 3> tierp {nullptr, nullptr, nullptr};
 	Menu *mi, *before = nullptr;
 	Client_ctx* cc;
 	Winname* wn;
@@ -217,13 +217,13 @@ void search_print_client(Menu* mi, int listing)
 	else if (cc->flags & CLIENT_HIDDEN)
 		flag = '&';
 
-	(void)snprintf(mi->print,
-	               sizeof(mi->print),
-	               "(%d) %c[%s] %s",
-	               (cc->gc) ? cc->gc->num : 0,
-	               flag,
-	               (cc->label) ? cc->label : "",
-	               cc->name);
+	snprintf(mi->print,
+	         sizeof(mi->print),
+	         "(%d) %c[%s] %s",
+	         (cc->gc) ? cc->gc->num : 0,
+	         flag,
+	         (!cc->label.empty()) ? cc->label.c_str() : "",
+	         cc->name);
 }
 
 void search_print_cmd(Menu* mi, int listing)

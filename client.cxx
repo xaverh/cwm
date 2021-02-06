@@ -60,7 +60,6 @@ Client_ctx* client_init(Window win, Screen_ctx* sc)
 	cc->sc = sc;
 	cc->win = win;
 	cc->name = nullptr;
-	cc->label = nullptr;
 	cc->gc = nullptr;
 	cc->res_class = nullptr;
 	cc->res_name = nullptr;
@@ -212,7 +211,6 @@ void client_remove(Client_ctx* cc)
 	}
 
 	free(cc->name);
-	free(cc->label);
 	free(cc->res_class);
 	free(cc->res_name);
 	free(cc);
