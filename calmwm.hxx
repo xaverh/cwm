@@ -172,6 +172,7 @@ struct Client_ctx {
 
 	void apply_sizehints() noexcept;
 	void close() const noexcept;
+	void config() const;
 };
 TAILQ_HEAD(client_q, Client_ctx);
 
@@ -392,7 +393,6 @@ extern struct Conf conf;
 
 void usage();
 
-void client_config(Client_ctx*);
 Client_ctx* client_current(Screen_ctx*);
 void client_draw_border(Client_ctx*);
 Client_ctx* client_find(Window);

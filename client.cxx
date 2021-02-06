@@ -105,7 +105,7 @@ Client_ctx* client_init(Window win, Screen_ctx* sc)
 	XAddToSaveSet(X_Dpy, cc->win);
 
 	/* Notify client of its configuration. */
-	client_config(cc);
+	cc->config();
 
 	TAILQ_INSERT_TAIL(&sc->clientq, cc, entry);
 
@@ -411,13 +411,13 @@ void client_resize(Client_ctx* cc, int reset)
 	XMoveResizeWindow(X_Dpy, cc->win, cc->geom.x, cc->geom.y, cc->geom.w, cc->geom.h);
 	cc->dim.w = (cc->geom.w - cc->hint.basew) / cc->hint.incw;
 	cc->dim.h = (cc->geom.h - cc->hint.baseh) / cc->hint.inch;
-	client_config(cc);
+	cc->config();
 }
 
 void client_move(Client_ctx* cc)
 {
 	XMoveWindow(X_Dpy, cc->win, cc->geom.x, cc->geom.y);
-	client_config(cc);
+	cc->config();
 }
 
 void client_lower(Client_ctx* cc)
@@ -430,23 +430,23 @@ void client_raise(Client_ctx* cc)
 	XRaiseWindow(X_Dpy, cc->win);
 }
 
-void client_config(Client_ctx* cc)
+void Client_ctx::config() const
 {
 	XConfigureEvent cn;
+	memset(&cn, 0, sizeof(cn));
 
-	(void)memset(&cn, 0, sizeof(cn));
 	cn.type = ConfigureNotify;
-	cn.event = cc->win;
-	cn.window = cc->win;
-	cn.x = cc->geom.x;
-	cn.y = cc->geom.y;
-	cn.width = cc->geom.w;
-	cn.height = cc->geom.h;
-	cn.border_width = cc->bwidth;
+	cn.event = win;
+	cn.window = win;
+	cn.x = geom.x;
+	cn.y = geom.y;
+	cn.width = geom.w;
+	cn.height = geom.h;
+	cn.border_width = bwidth;
 	cn.above = None;
 	cn.override_redirect = 0;
 
-	XSendEvent(X_Dpy, cc->win, False, StructureNotifyMask, (XEvent*)&cn);
+	XSendEvent(X_Dpy, win, False, StructureNotifyMask, (XEvent*)&cn);
 }
 
 void client_ptr_inbound(Client_ctx* cc, int getpos)
