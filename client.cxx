@@ -573,12 +573,12 @@ void client_wm_hints(Client_ctx* cc)
 	}
 }
 
-void client_close(Client_ctx* cc)
+void Client_ctx::close() const noexcept
 {
-	if (cc->flags & CLIENT_WM_DELETE_WINDOW)
-		xu_send_clientmsg(cc->win, cwmh[WM_DELETE_WINDOW], CurrentTime);
+	if (flags & CLIENT_WM_DELETE_WINDOW)
+		xu_send_clientmsg(win, cwmh[WM_DELETE_WINDOW], CurrentTime);
 	else
-		XKillClient(X_Dpy, cc->win);
+		XKillClient(X_Dpy, win);
 }
 
 void client_set_name(Client_ctx* cc)
@@ -707,50 +707,50 @@ void client_get_sizehints(Client_ctx* cc)
 	}
 }
 
-void client_apply_sizehints(Client_ctx* cc)
+void Client_ctx::apply_sizehints() noexcept
 {
-	auto baseismin = (cc->hint.basew == cc->hint.minw) && (cc->hint.baseh == cc->hint.minh);
+	auto baseismin = (hint.basew == hint.minw) && (hint.baseh == hint.minh);
 
 	/* temporarily remove base dimensions, ICCCM 4.1.2.3 */
 	if (!baseismin) {
-		cc->geom.w -= cc->hint.basew;
-		cc->geom.h -= cc->hint.baseh;
+		geom.w -= hint.basew;
+		geom.h -= hint.baseh;
 	}
 
 	/* adjust for aspect limits */
-	if (cc->hint.mina && cc->hint.maxa) {
-		if (cc->hint.maxa < static_cast<float>(cc->geom.w) / cc->geom.h)
-			cc->geom.w = cc->geom.h * cc->hint.maxa;
-		else if (cc->hint.mina < static_cast<float>(cc->geom.h) / cc->geom.w)
-			cc->geom.h = cc->geom.w * cc->hint.mina;
+	if (hint.mina && hint.maxa) {
+		if (hint.maxa < static_cast<float>(geom.w) / geom.h)
+			geom.w = geom.h * hint.maxa;
+		else if (hint.mina < static_cast<float>(geom.h) / geom.w)
+			geom.h = geom.w * hint.mina;
 	}
 
 	/* remove base dimensions for increment */
 	if (baseismin) {
-		cc->geom.w -= cc->hint.basew;
-		cc->geom.h -= cc->hint.baseh;
+		geom.w -= hint.basew;
+		geom.h -= hint.baseh;
 	}
 
 	/* adjust for increment value */
-	cc->geom.w -= cc->geom.w % cc->hint.incw;
-	cc->geom.h -= cc->geom.h % cc->hint.inch;
+	geom.w -= geom.w % hint.incw;
+	geom.h -= geom.h % hint.inch;
 
 	/* restore base dimensions */
-	cc->geom.w += cc->hint.basew;
-	cc->geom.h += cc->hint.baseh;
+	geom.w += hint.basew;
+	geom.h += hint.baseh;
 
 	/* adjust for min width/height */
-	cc->geom.w = std::max(cc->geom.w, cc->hint.minw);
-	cc->geom.h = std::max(cc->geom.h, cc->hint.minh);
+	geom.w = std::max(geom.w, hint.minw);
+	geom.h = std::max(geom.h, hint.minh);
 
 	/* adjust for max width/height */
-	if (cc->hint.maxw) cc->geom.w = std::min(cc->geom.w, cc->hint.maxw);
-	if (cc->hint.maxh) cc->geom.h = std::min(cc->geom.h, cc->hint.maxh);
+	if (hint.maxw) geom.w = std::min(geom.w, hint.maxw);
+	if (hint.maxh) geom.h = std::min(geom.h, hint.maxh);
 }
 
 static void client_mwm_hints(Client_ctx* cc)
 {
-	struct mwm_hints* mwmh;
+	Mwm_hints* mwmh;
 
 	if (xu_get_prop(cc->win,
 	                cwmh[_MOTIF_WM_HINTS],

@@ -253,7 +253,7 @@ static void kbfunc_client_resize_mb(void* ctx, Cargs* cargs)
 
 			cc->geom.w = ev.xmotion.x;
 			cc->geom.h = ev.xmotion.y;
-			client_apply_sizehints(cc);
+			cc->apply_sizehints();
 			client_resize(cc, 1);
 			screen_prop_win_draw(sc, "%4d x %-4d", cc->dim.w, cc->dim.h);
 			break;
@@ -302,7 +302,7 @@ void kbfunc_client_snap(void* ctx, Cargs* cargs)
 
 void kbfunc_client_close(void* ctx, Cargs* cargs)
 {
-	client_close((Client_ctx*)ctx);
+	((Client_ctx*)ctx)->close();
 }
 
 void kbfunc_client_lower(void* ctx, Cargs* cargs)

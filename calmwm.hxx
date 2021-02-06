@@ -169,6 +169,9 @@ struct Client_ctx {
 	char* res_class;   /* class hint */
 	char* res_name;    /* class hint */
 	int initial_state; /* wm hint */
+
+	void apply_sizehints() noexcept;
+	void close() const noexcept;
 };
 TAILQ_HEAD(client_q, Client_ctx);
 
@@ -330,7 +333,7 @@ static constexpr auto MWM_DECOR_MENU {1 << 4};
 static constexpr auto MWM_DECOR_MINIMIZE {1 << 5};
 static constexpr auto MWM_DECOR_MAXIMIZE {1 << 6};
 
-struct mwm_hints {
+struct Mwm_hints {
 	unsigned long flags;
 	unsigned long functions;
 	unsigned long decorations;
@@ -389,8 +392,6 @@ extern struct Conf conf;
 
 void usage();
 
-void client_apply_sizehints(Client_ctx*);
-void client_close(Client_ctx*);
 void client_config(Client_ctx*);
 Client_ctx* client_current(Screen_ctx*);
 void client_draw_border(Client_ctx*);

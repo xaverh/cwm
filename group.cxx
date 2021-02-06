@@ -242,7 +242,7 @@ void group_close(Screen_ctx* sc, int idx)
 			TAILQ_FOREACH(cc, &sc->clientq, entry)
 			{
 				if (cc->gc != gc) continue;
-				client_close(cc);
+				cc->close();
 			}
 		}
 	}

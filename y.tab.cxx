@@ -373,7 +373,6 @@ yyreduce:
 
 	/* If YYLEN is nonzero, implement the default value of the action:
 	   '$$ = $1'.
-
 	   Otherwise, the following line sets YYVAL to garbage.
 	   This behavior is undocumented and Bison
 	   users should not rely upon it.  Assigning to YYVAL
@@ -382,13 +381,8 @@ yyreduce:
 	yyval = yyvsp[1 - yylen];
 
 	switch (yyn) {
-	case 6: /* grammar: grammar error '\n'  */
-	{
-		file->errors++;
-	} break;
-
+	case 6: /* grammar: grammar error '\n'  */ file->errors++; break;
 	case 7: /* string: string STRING  */
-	{
 		if (asprintf(&(yyval.v.string), "%s %s", (yyvsp[-1].v.string), (yyvsp[0].v.string)) == -1) {
 			std::free((yyvsp[-1].v.string));
 			std::free((yyvsp[0].v.string));
@@ -397,76 +391,50 @@ yyreduce:
 		}
 		std::free((yyvsp[-1].v.string));
 		std::free((yyvsp[0].v.string));
-	} break;
-
-	case 9: /* yesno: YES  */
-	{
-		(yyval.v.number) = 1;
-	} break;
-
-	case 10: /* yesno: NO  */
-	{
-		(yyval.v.number) = 0;
-	} break;
-
+		break;
+	case 9: /* yesno: YES  */ (yyval.v.number) = 1; break;
+	case 10: /* yesno: NO  */ (yyval.v.number) = 0; break;
 	case 11: /* main: FONTNAME STRING  */
-	{
 		std::free(config->font);
 		config->font = (yyvsp[0].v.string);
-	} break;
-
-	case 12: /* main: STICKY yesno  */
-	{
-		config->stickygroups = (yyvsp[0].v.number);
-	} break;
-
+		break;
+	case 12: /* main: STICKY yesno  */ config->stickygroups = (yyvsp[0].v.number); break;
 	case 13: /* main: BORDERWIDTH NUMBER  */
-	{
 		if ((yyvsp[0].v.number) < 0 || (yyvsp[0].v.number) > INT_MAX) {
 			yyerror("invalid borderwidth");
 			goto yyerrorlab;
 		}
 		config->bwidth = (yyvsp[0].v.number);
-	} break;
-
+		break;
 	case 14: /* main: HTILE NUMBER  */
-	{
 		if ((yyvsp[0].v.number) < 0 || (yyvsp[0].v.number) > 99) {
 			yyerror("invalid htile percent");
 			goto yyerrorlab;
 		}
 		config->htile = (yyvsp[0].v.number);
-	} break;
-
+		break;
 	case 15: /* main: VTILE NUMBER  */
-	{
 		if ((yyvsp[0].v.number) < 0 || (yyvsp[0].v.number) > 99) {
 			yyerror("invalid vtile percent");
 			goto yyerrorlab;
 		}
 		config->vtile = (yyvsp[0].v.number);
-	} break;
-
+		break;
 	case 16: /* main: MOVEAMOUNT NUMBER  */
-	{
 		if ((yyvsp[0].v.number) < 0 || (yyvsp[0].v.number) > INT_MAX) {
 			yyerror("invalid movemount");
 			goto yyerrorlab;
 		}
 		config->mamount = (yyvsp[0].v.number);
-	} break;
-
+		break;
 	case 17: /* main: SNAPDIST NUMBER  */
-	{
 		if ((yyvsp[0].v.number) < 0 || (yyvsp[0].v.number) > INT_MAX) {
 			yyerror("invalid snapdist");
 			goto yyerrorlab;
 		}
 		config->snapdist = (yyvsp[0].v.number);
-	} break;
-
+		break;
 	case 18: /* main: COMMAND STRING string  */
-	{
 		if (strlen((yyvsp[0].v.string)) >= PATH_MAX) {
 			yyerror("%s command path too long", (yyvsp[-1].v.string));
 			std::free((yyvsp[-1].v.string));
@@ -476,10 +444,8 @@ yyreduce:
 		conf_cmd_add(config, (yyvsp[-1].v.string), (yyvsp[0].v.string));
 		std::free((yyvsp[-1].v.string));
 		std::free((yyvsp[0].v.string));
-	} break;
-
+		break;
 	case 19: /* main: WM STRING string  */
-	{
 		if (strlen((yyvsp[0].v.string)) >= PATH_MAX) {
 			yyerror("%s wm path too long", (yyvsp[-1].v.string));
 			std::free((yyvsp[-1].v.string));
@@ -489,13 +455,8 @@ yyreduce:
 		conf_wm_add(config, (yyvsp[-1].v.string), (yyvsp[0].v.string));
 		std::free((yyvsp[-1].v.string));
 		std::free((yyvsp[0].v.string));
-	}
-
-	break;
-
+		break;
 	case 20: /* main: AUTOGROUP NUMBER STRING  */
-
-	{
 		if ((yyvsp[-1].v.number) < 0 || (yyvsp[-1].v.number) > 9) {
 			yyerror("invalid autogroup");
 			std::free((yyvsp[0].v.string));
@@ -503,13 +464,8 @@ yyreduce:
 		}
 		conf_autogroup(config, (yyvsp[-1].v.number), nullptr, (yyvsp[0].v.string));
 		std::free((yyvsp[0].v.string));
-	}
-
-	break;
-
+		break;
 	case 21: /* main: AUTOGROUP NUMBER STRING ',' STRING  */
-
-	{
 		if ((yyvsp[-3].v.number) < 0 || (yyvsp[-3].v.number) > 9) {
 			yyerror("invalid autogroup");
 			std::free((yyvsp[-2].v.string));
@@ -519,22 +475,12 @@ yyreduce:
 		conf_autogroup(config, (yyvsp[-3].v.number), (yyvsp[-2].v.string), (yyvsp[0].v.string));
 		std::free((yyvsp[-2].v.string));
 		std::free((yyvsp[0].v.string));
-	}
-
-	break;
-
+		break;
 	case 22: /* main: IGNORE STRING  */
-
-	{
 		conf_ignore(config, (yyvsp[0].v.string));
 		std::free((yyvsp[0].v.string));
-	}
-
-	break;
-
+		break;
 	case 23: /* main: GAP NUMBER NUMBER NUMBER NUMBER  */
-
-	{
 		if ((yyvsp[-3].v.number) < 0 || (yyvsp[-3].v.number) > INT_MAX || (yyvsp[-2].v.number) < 0
 		    || (yyvsp[-2].v.number) > INT_MAX || (yyvsp[-1].v.number) < 0
 		    || (yyvsp[-1].v.number) > INT_MAX || (yyvsp[0].v.number) < 0
@@ -546,13 +492,8 @@ yyreduce:
 		config->gap.bottom = (yyvsp[-2].v.number);
 		config->gap.left = (yyvsp[-1].v.number);
 		config->gap.right = (yyvsp[0].v.number);
-	}
-
-	break;
-
+		break;
 	case 24: /* main: BINDKEY STRING string  */
-
-	{
 		if (!conf_bind_key(config, (yyvsp[-1].v.string), (yyvsp[0].v.string))) {
 			yyerror("invalid bind-key: %s %s", (yyvsp[-1].v.string), (yyvsp[0].v.string));
 			std::free((yyvsp[-1].v.string));
@@ -561,26 +502,16 @@ yyreduce:
 		}
 		std::free((yyvsp[-1].v.string));
 		std::free((yyvsp[0].v.string));
-	}
-
-	break;
-
+		break;
 	case 25: /* main: UNBINDKEY STRING  */
-
-	{
 		if (!conf_bind_key(config, (yyvsp[0].v.string), nullptr)) {
 			yyerror("invalid unbind-key: %s", (yyvsp[0].v.string));
 			std::free((yyvsp[0].v.string));
 			goto yyerrorlab;
 		}
 		std::free((yyvsp[0].v.string));
-	}
-
-	break;
-
+		break;
 	case 26: /* main: BINDMOUSE STRING string  */
-
-	{
 		if (!conf_bind_mouse(config, (yyvsp[-1].v.string), (yyvsp[0].v.string))) {
 			yyerror("invalid bind-mouse: %s %s", (yyvsp[-1].v.string), (yyvsp[0].v.string));
 			std::free((yyvsp[-1].v.string));
@@ -589,41 +520,23 @@ yyreduce:
 		}
 		std::free((yyvsp[-1].v.string));
 		std::free((yyvsp[0].v.string));
-	}
-
-	break;
-
+		break;
 	case 27: /* main: UNBINDMOUSE STRING  */
-
-	{
 		if (!conf_bind_mouse(config, (yyvsp[0].v.string), nullptr)) {
 			yyerror("invalid unbind-mouse: %s", (yyvsp[0].v.string));
 			std::free((yyvsp[0].v.string));
 			goto yyerrorlab;
 		}
 		std::free((yyvsp[0].v.string));
-	}
-
-	break;
-
+		break;
 	case 29: /* colors: ACTIVEBORDER STRING  */
-
-	{
 		std::free(config->color[CWM_COLOR_BORDER_ACTIVE]);
 		config->color[CWM_COLOR_BORDER_ACTIVE] = (yyvsp[0].v.string);
-	}
-
-	break;
-
+		break;
 	case 30: /* colors: INACTIVEBORDER STRING  */
-
-	{
 		std::free(config->color[CWM_COLOR_BORDER_INACTIVE]);
 		config->color[CWM_COLOR_BORDER_INACTIVE] = (yyvsp[0].v.string);
-	}
-
-	break;
-
+		break;
 	case 31: /* colors: URGENCYBORDER STRING  */
 		std::free(config->color[CWM_COLOR_BORDER_URGENCY]);
 		config->color[CWM_COLOR_BORDER_URGENCY] = (yyvsp[0].v.string);

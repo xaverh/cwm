@@ -29,13 +29,13 @@
 
 #include <cerrno>
 #include <climits>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <err.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <cstdint>
 
 static void xev_handle_maprequest(XEvent*);
 static void xev_handle_unmapnotify(XEvent*);
@@ -394,7 +394,7 @@ static void xev_handle_clientmessage(XEvent* ee)
 			if (e->data.l[0] == IconicState) client_hide(cc);
 		}
 	} else if (e->message_type == ewmh[_NET_CLOSE_WINDOW]) {
-		if ((cc = client_find(e->window)) != nullptr) { client_close(cc); }
+		if ((cc = client_find(e->window)) != nullptr) cc->close();
 	} else if (e->message_type == ewmh[_NET_ACTIVE_WINDOW]) {
 		if ((cc = client_find(e->window)) != nullptr) {
 			if ((old_cc = client_current(nullptr)) != nullptr) client_ptr_save(old_cc);
