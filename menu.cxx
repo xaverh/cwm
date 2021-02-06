@@ -122,7 +122,7 @@ Menu* menu_filter(Screen_ctx* sc,
 	                             0,
 	                             1,
 	                             1,
-	                             conf.bwidth,
+	                             conf->bwidth,
 	                             sc->xftcolor[CWM_COLOR_MENU_FG].pixel,
 	                             sc->xftcolor[CWM_COLOR_MENU_BG].pixel);
 	mc.xftdraw = XftDrawCreate(X_Dpy, mc.win, sc->visual, sc->colormap);
@@ -137,7 +137,7 @@ Menu* menu_filter(Screen_ctx* sc,
 	                 GrabModeAsync,
 	                 GrabModeAsync,
 	                 None,
-	                 conf.cursor[CF_QUESTION],
+	                 conf->cursor[CF_QUESTION],
 	                 CurrentTime)
 	    != GrabSuccess) {
 		XftDrawDestroy(mc.xftdraw);
@@ -372,8 +372,8 @@ static void menu_draw(Menu_ctx* mc, struct menu_q* menuq, struct menu_q* resultq
 	}
 
 	area = screen_area(sc, mc->geom.x, mc->geom.y, 1);
-	area.w += area.x - conf.bwidth * 2;
-	area.h += area.y - conf.bwidth * 2;
+	area.w += area.x - conf->bwidth * 2;
+	area.h += area.y - conf->bwidth * 2;
 
 	xsave = mc->geom.x;
 	ysave = mc->geom.y;
@@ -459,7 +459,7 @@ static void menu_handle_move(Menu_ctx* mc, struct menu_q* resultq, int x, int y)
 
 	if (mc->prev != -1) menu_draw_entry(mc, resultq, mc->prev, 0);
 	if (mc->entry != -1) {
-		XChangeActivePointerGrab(X_Dpy, MENUGRABMASK, conf.cursor[CF_NORMAL], CurrentTime);
+		XChangeActivePointerGrab(X_Dpy, MENUGRABMASK, conf->cursor[CF_NORMAL], CurrentTime);
 		menu_draw_entry(mc, resultq, mc->entry, 1);
 	}
 }

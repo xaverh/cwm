@@ -65,12 +65,12 @@ void screen_init(int which)
 	xu_ewmh_net_showing_desktop(sc);
 	xu_ewmh_net_virtual_roots(sc);
 
-	attr.cursor = conf.cursor[CF_NORMAL];
+	attr.cursor = conf->cursor[CF_NORMAL];
 	attr.event_mask = SubstructureRedirectMask | SubstructureNotifyMask | EnterWindowMask
 	                  | PropertyChangeMask | ButtonPressMask;
 	XChangeWindowAttributes(X_Dpy, sc->rootwin, (CWEventMask | CWCursor), &attr);
 
-	if (conf.xrandr) XRRSelectInput(X_Dpy, sc->rootwin, RRScreenChangeNotifyMask);
+	if (conf->xrandr) XRRSelectInput(X_Dpy, sc->rootwin, RRScreenChangeNotifyMask);
 
 	screen_scan(sc);
 	screen_updatestackingorder(sc);
@@ -174,7 +174,7 @@ void screen_update_geometry(Screen_ctx* sc)
 		free(rc);
 	}
 
-	if (conf.xrandr) {
+	if (conf->xrandr) {
 		XRRScreenResources* sr;
 		XRRCrtcInfo* ci;
 		int i;

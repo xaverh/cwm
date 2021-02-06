@@ -1,3 +1,4 @@
 *.o
 cwm
 .cache
+.vscode/settings.json

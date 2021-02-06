@@ -33,6 +33,7 @@
 #include <cstring>
 #include <err.h>
 #include <getopt.h>
+#include <memory>
 #include <poll.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -43,7 +44,7 @@ Time Last_Event_Time = CurrentTime;
 std::array<Atom, CWMH_NITEMS> cwmh;
 std::array<Atom, EWMH_NITEMS> ewmh;
 screen_q Screenq = TAILQ_HEAD_INITIALIZER(Screenq);
-struct Conf conf;
+std::unique_ptr<Conf> conf {nullptr};
 std::atomic<int> cwm_status;
 
 static void sighdlr(int);
@@ -62,19 +63,16 @@ int main(int argc, char** argv)
 	if (!setlocale(LC_CTYPE, "") || !XSupportsLocale()) warnx("no locale support");
 	mbtowc(nullptr, nullptr, MB_CUR_MAX);
 
-	conf_init(&conf);
+	conf = std::make_unique<Conf>();
 
 	fallback = u_argv(argv);
-	conf.wm_argv = u_argv(argv);
+	conf->wm_argv = u_argv(argv);
 	while ((ch = getopt(argc, argv, "c:d:nv")) != -1) {
 		switch (ch) {
-		case 'c':
-			free(conf.conf_file);
-			conf.conf_file = xstrdup(optarg);
-			break;
+		case 'c': conf->conf_file = optarg; break;
 		case 'd': display_name = optarg; break;
 		case 'n': nflag = 1; break;
-		case 'v': conf.debug++; break;
+		case 'v': ++conf->debug; break;
 		default: usage();
 		}
 	}
@@ -85,7 +83,7 @@ int main(int argc, char** argv)
 	    || signal(SIGINT, sighdlr) == SIG_ERR || signal(SIGTERM, sighdlr) == SIG_ERR)
 		err(1, "signal");
 
-	if (parse_config(conf.conf_file, &conf) == -1) {
+	if (conf->parse() == -1) {
 		warnx("error parsing config file");
 		if (nflag) return 1;
 	}
@@ -105,8 +103,8 @@ int main(int argc, char** argv)
 	}
 	x_teardown();
 	if (cwm_status == Cwm_status::CWM_EXEC_WM) {
-		u_exec(conf.wm_argv);
-		warnx("'%s' failed to start, starting fallback", conf.wm_argv);
+		u_exec(conf->wm_argv);
+		warnx("'%s' failed to start, starting fallback", conf->wm_argv);
 		u_exec(fallback);
 	}
 
@@ -125,10 +123,10 @@ static int x_init(char const* dpyname)
 	XSync(X_Dpy, False);
 	XSetErrorHandler(x_errorhandler);
 
-	conf.xrandr = XRRQueryExtension(X_Dpy, &conf.xrandr_event_base, &i);
+	conf->xrandr = XRRQueryExtension(X_Dpy, &conf->xrandr_event_base, &i);
 
 	xu_atom_init();
-	conf_cursor(&conf);
+	conf->create_cursor();
 
 	for (auto i = 0; i < ScreenCount(X_Dpy); ++i) screen_init(i);
 
@@ -139,8 +137,6 @@ static void x_teardown()
 {
 	Screen_ctx* sc;
 	unsigned int i;
-
-	conf_clear(&conf);
 
 	TAILQ_FOREACH(sc, &Screenq, entry)
 	{
@@ -154,7 +150,7 @@ static void x_teardown()
 	}
 	XUngrabPointer(X_Dpy, CurrentTime);
 	XUngrabKeyboard(X_Dpy, CurrentTime);
-	for (auto& c : conf.cursor) XFreeCursor(X_Dpy, c);
+	for (auto& c : conf->cursor) XFreeCursor(X_Dpy, c);
 	XSync(X_Dpy, False);
 	XSetInputFocus(X_Dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
 	XCloseDisplay(X_Dpy);

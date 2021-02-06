@@ -34,7 +34,14 @@
 #include <X11/keysym.h>
 #include <array>
 #include <cstdio>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <string_view>
 #include <sys/param.h>
+
+using namespace std::string_view_literals;
+using namespace std::string_literals;
 
 /* prototypes for portable-included functions */
 long long strtonum(char const*, long long, long long, char const**);
@@ -287,31 +294,58 @@ struct Menu {
 TAILQ_HEAD(menu_q, Menu);
 
 struct Conf {
-	struct keybind_q keybindq;
-	struct mousebind_q mousebindq;
-	struct autogroup_q autogroupq;
-	struct ignore_q ignoreq;
-	struct cmd_q cmdq;
-	struct wm_q wmq;
-	int ngroups;
-	int stickygroups;
-	int nameqlen;
-	int bwidth;
-	int mamount;
-	int snapdist;
-	int htile;
-	int vtile;
-	Gap gap;
-	char* color[CWM_COLOR_NITEMS];
-	char* font;
-	char* wmname;
-	Cursor cursor[CF_NITEMS];
-	int xrandr;
-	int xrandr_event_base;
-	char* conf_file;
-	char* known_hosts;
-	char* wm_argv;
-	int debug;
+	Conf() noexcept;
+	~Conf();
+	Conf(Conf const&) = delete;
+	Conf(Conf&&) = default;
+	Conf& operator=(Conf const&) = delete;
+	Conf& operator=(Conf&&) = default;
+	keybind_q keybindq {nullptr, nullptr};
+	mousebind_q mousebindq {nullptr, nullptr};
+	autogroup_q autogroupq {nullptr, nullptr};
+	ignore_q ignoreq {nullptr, nullptr};
+	cmd_q cmdq {nullptr, nullptr};
+	wm_q wmq {nullptr, nullptr};
+	int ngroups {0};
+	int stickygroups {0};
+	int nameqlen {5};
+	int bwidth {1};
+	int mamount {1};
+	int snapdist {0};
+	int htile {50};
+	int vtile {50};
+	Gap gap {};
+	std::array<std::string, CWM_COLOR_NITEMS> color {
+	    "#CCCCCC"s, // CWM_COLOR_BORDER_ACTIVE
+	    "#666666"s, // CWM_COLOR_BORDER_INACTIVE
+	    "#FC8814"s, // CWM_COLOR_BORDER_URGENCY
+	    "blue"s,    // CWM_COLOR_BORDER_GROUP
+	    "red"s,     // CWM_COLOR_BORDER_UNGROUP
+	    "black"s,   // CWM_COLOR_MENU_FG
+	    "white"s,   // CWM_COLOR_MENU_BG
+	    "black"s,   // CWM_COLOR_MENU_FONT
+	    ""s         // CWM_COLOR_MENU_FONT_SEL
+	};
+	std::string_view font {"sans-serif:pixelsize=14:bold"sv};
+	std::string_view wmname {"CWM"sv};
+	std::array<Cursor, CF_NITEMS> cursor {None, None, None, None};
+	int xrandr {0};
+	int xrandr_event_base {0};
+	std::filesystem::path conf_file;
+	std::filesystem::path known_hosts;
+	char* wm_argv {nullptr};
+	int debug {0};
+
+	[[nodiscard]] int parse();
+	void create_cursor();
+	void autogroup(int, char const*, char const*);
+	[[nodiscard]] int bind_key(char const*, char const*);
+	void unbind_key(Bind_ctx*);
+	[[nodiscard]] int bind_mouse(char const*, char const*);
+	void unbind_mouse(Bind_ctx*);
+	void cmd_add(char const*, char const*);
+	void wm_add(char const*, char const*);
+	void ignore(char const*);
 };
 
 /* MWM hints */
@@ -351,6 +385,8 @@ enum Cwmh : std::size_t {
 	CWMH_NITEMS
 };
 
+#define _NET_WM_STATES_NITEMS 9
+
 enum Ewmh {
 	_NET_SUPPORTED,
 	_NET_SUPPORTING_WM_CHECK,
@@ -369,7 +405,6 @@ enum Ewmh {
 	_NET_WM_DESKTOP,
 	_NET_CLOSE_WINDOW,
 	_NET_WM_STATE,
-#define _NET_WM_STATES_NITEMS 9
 	_NET_WM_STATE_STICKY,
 	_NET_WM_STATE_MAXIMIZED_VERT,
 	_NET_WM_STATE_MAXIMIZED_HORZ,
@@ -382,6 +417,74 @@ enum Ewmh {
 	EWMH_NITEMS
 };
 
+static constexpr struct {
+	char const* key;
+	char const* func;
+} key_binds[] = {
+	{ "CM-Return",	"terminal" },
+	{ "CM-Delete",	"lock" },
+	{ "M-question",	"menu-exec" },
+	{ "CM-w",	"menu-exec-wm" },
+	{ "M-period",	"menu-ssh" },
+	{ "M-Return",	"window-hide" },
+	{ "M-Down",	"window-lower" },
+	{ "M-Up",	"window-raise" },
+	{ "M-slash",	"menu-window" },
+	{ "C-slash",	"menu-cmd" },
+	{ "M-Tab",	"window-cycle" },
+	{ "MS-Tab",	"window-rcycle" },
+	{ "CM-n",	"window-menu-label" },
+	{ "CM-x",	"window-close" },
+	{ "CM-a",	"group-toggle-all" },
+	{ "CM-0",	"group-toggle-all" },
+	{ "CM-1",	"group-toggle-1" },
+	{ "CM-2",	"group-toggle-2" },
+	{ "CM-3",	"group-toggle-3" },
+	{ "CM-4",	"group-toggle-4" },
+	{ "CM-5",	"group-toggle-5" },
+	{ "CM-6",	"group-toggle-6" },
+	{ "CM-7",	"group-toggle-7" },
+	{ "CM-8",	"group-toggle-8" },
+	{ "CM-9",	"group-toggle-9" },
+	{ "M-Right",	"group-cycle" },
+	{ "M-Left",	"group-rcycle" },
+	{ "CM-g",	"window-group" },
+	{ "CM-f",	"window-fullscreen" },
+	{ "CM-m",	"window-maximize" },
+	{ "CM-s",	"window-stick" },
+	{ "CM-equal",	"window-vmaximize" },
+	{ "CMS-equal",	"window-hmaximize" },
+	{ "CMS-f",	"window-freeze" },
+	{ "CMS-r",	"restart" },
+	{ "CMS-q",	"quit" },
+	{ "M-h",	"window-move-left" },
+	{ "M-j",	"window-move-down" },
+	{ "M-k",	"window-move-up" },
+	{ "M-l",	"window-move-right" },
+	{ "MS-h",	"window-move-left-big" },
+	{ "MS-j",	"window-move-down-big" },
+	{ "MS-k",	"window-move-up-big" },
+	{ "MS-l",	"window-move-right-big" },
+	{ "CM-h",	"window-resize-left" },
+	{ "CM-j",	"window-resize-down" },
+	{ "CM-k",	"window-resize-up" },
+	{ "CM-l",	"window-resize-right" },
+	{ "CMS-h",	"window-resize-left-big" },
+	{ "CMS-j",	"window-resize-down-big" },
+	{ "CMS-k",	"window-resize-up-big" },
+	{ "CMS-l",	"window-resize-right-big" },
+},
+mouse_binds[] = {
+	{ "1",		"menu-window" },
+	{ "2",		"menu-group" },
+	{ "3",		"menu-cmd" },
+	{ "M-1",	"window-move" },
+	{ "CM-1",	"window-group" },
+	{ "M-2",	"window-resize" },
+	{ "M-3",	"window-lower" },
+	{ "CMS-3",	"window-hide" },
+};
+
 enum net_wm_state { _NET_WM_STATE_REMOVE, _NET_WM_STATE_ADD, _NET_WM_STATE_TOGGLE };
 
 extern Display* X_Dpy;
@@ -389,7 +492,7 @@ extern Time Last_Event_Time;
 extern std::array<Atom, CWMH_NITEMS> cwmh;
 extern std::array<Atom, EWMH_NITEMS> ewmh;
 extern struct screen_q Screenq;
-extern struct Conf conf;
+extern std::unique_ptr<struct Conf> conf;
 
 void usage();
 
@@ -518,20 +621,10 @@ Menu* menu_filter(Screen_ctx*,
 void menuq_add(struct menu_q*, void*, char const*, ...) __attribute__((__format__(printf, 3, 4)));
 void menuq_clear(struct menu_q*);
 
-int parse_config(char const*, struct Conf*);
-
-void conf_autogroup(struct Conf*, int, char const*, char const*);
-int conf_bind_key(struct Conf*, char const*, char const*);
-int conf_bind_mouse(struct Conf*, char const*, char const*);
 void conf_clear(struct Conf*);
 void conf_client(Client_ctx*);
-void conf_cmd_add(struct Conf*, char const*, char const*);
-void conf_wm_add(struct Conf*, char const*, char const*);
-void conf_cursor(struct Conf*);
 void conf_grab_kbd(Window);
 void conf_grab_mouse(Window);
-void conf_init(struct Conf*);
-void conf_ignore(struct Conf*, char const*);
 void conf_screen(Screen_ctx*);
 void conf_group(Screen_ctx*);
 

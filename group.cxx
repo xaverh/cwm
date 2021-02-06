@@ -303,7 +303,7 @@ int group_restore(Client_ctx* cc)
 	if (!xu_ewmh_get_net_wm_desktop(cc, &grpnum)) return 0;
 
 	num = (grpnum == -1) ? 0 : grpnum;
-	num = std::min(num, (conf.ngroups - 1));
+	num = std::min(num, (conf->ngroups - 1));
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	{
@@ -324,7 +324,7 @@ int group_autogroup(Client_ctx* cc)
 
 	if (cc->res_class == nullptr || cc->res_name == nullptr) return 0;
 
-	TAILQ_FOREACH(ag, &conf.autogroupq, entry)
+	TAILQ_FOREACH(ag, &conf->autogroupq, entry)
 	{
 		if (strcmp(ag->wclass, cc->res_class) == 0) {
 			if ((ag->name != nullptr) && (strcmp(ag->name, cc->res_name) == 0)) {

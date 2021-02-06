@@ -76,7 +76,7 @@ Client_ctx* client_init(Window win, Screen_ctx* sc)
 	cc->geom.h = wattr.height;
 	cc->colormap = wattr.colormap;
 	cc->obwidth = wattr.border_width;
-	cc->bwidth = conf.bwidth;
+	cc->bwidth = conf->bwidth;
 
 	client_set_name(cc);
 	conf_client(cc);
@@ -126,7 +126,7 @@ Client_ctx* client_init(Window win, Screen_ctx* sc)
 		}
 		if (group_restore(cc)) goto out;
 		if (group_autogroup(cc)) goto out;
-		if (conf.stickygroups)
+		if (conf->stickygroups)
 			group_assign(sc->group_active, cc);
 		else
 			group_assign(nullptr, cc);
@@ -288,7 +288,7 @@ void client_toggle_fullscreen(Client_ctx* cc)
 	if ((cc->flags & CLIENT_FREEZE) && !(cc->flags & CLIENT_FULLSCREEN)) return;
 
 	if (cc->flags & CLIENT_FULLSCREEN) {
-		if (!(cc->flags & CLIENT_IGNORE)) cc->bwidth = conf.bwidth;
+		if (!(cc->flags & CLIENT_IGNORE)) cc->bwidth = conf->bwidth;
 		cc->geom = cc->fullgeom;
 		cc->flags &= ~(CLIENT_FULLSCREEN | CLIENT_FREEZE);
 		goto resize;
@@ -604,7 +604,7 @@ void client_set_name(Client_ctx* cc)
 	TAILQ_INSERT_TAIL(&cc->nameq, wn, entry);
 
 	/* Garbage collection. */
-	if ((i + 1) > conf.nameqlen) {
+	if ((i + 1) > conf->nameqlen) {
 		wn = TAILQ_FIRST(&cc->nameq);
 		TAILQ_REMOVE(&cc->nameq, wn, entry);
 		free(wn->name);
@@ -836,7 +836,7 @@ void client_htile(Client_ctx* cc)
 	cc->geom.x = area.x;
 	cc->geom.y = area.y;
 	cc->geom.w = area.w - (cc->bwidth * 2);
-	if (conf.htile > 0) cc->geom.h = ((area.h - (cc->bwidth * 2)) * conf.htile) / 100;
+	if (conf->htile > 0) cc->geom.h = ((area.h - (cc->bwidth * 2)) * conf->htile) / 100;
 	client_resize(cc, 1);
 	client_ptr_warp(cc);
 
@@ -851,7 +851,7 @@ void client_htile(Client_ctx* cc)
 		    || ci->geom.x < area.x || ci->geom.x > (area.x + area.w) || ci->geom.y < area.y
 		    || ci->geom.y > (area.y + area.h))
 			continue;
-		ci->bwidth = conf.bwidth;
+		ci->bwidth = conf->bwidth;
 		ci->geom.x = x;
 		ci->geom.y = area.y + mh;
 		ci->geom.w = w - (ci->bwidth * 2);
@@ -889,7 +889,7 @@ void client_vtile(Client_ctx* cc)
 	cc->flags &= ~CLIENT_VMAXIMIZED;
 	cc->geom.x = area.x;
 	cc->geom.y = area.y;
-	if (conf.vtile > 0) cc->geom.w = ((area.w - (cc->bwidth * 2)) * conf.vtile) / 100;
+	if (conf->vtile > 0) cc->geom.w = ((area.w - (cc->bwidth * 2)) * conf->vtile) / 100;
 	cc->geom.h = area.h - (cc->bwidth * 2);
 	client_resize(cc, 1);
 	client_ptr_warp(cc);
@@ -905,7 +905,7 @@ void client_vtile(Client_ctx* cc)
 		    || ci->geom.x < area.x || ci->geom.x > (area.x + area.w) || ci->geom.y < area.y
 		    || ci->geom.y > (area.y + area.h))
 			continue;
-		ci->bwidth = conf.bwidth;
+		ci->bwidth = conf->bwidth;
 		ci->geom.x = area.x + mw;
 		ci->geom.y = y;
 		ci->geom.w = w - (ci->bwidth * 2);

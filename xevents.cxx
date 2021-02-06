@@ -258,7 +258,7 @@ static void xev_handle_buttonpress(XEvent* ee)
 
 	e->state &= ~IGNOREMODMASK;
 
-	TAILQ_FOREACH(mb, &conf.mousebindq, entry)
+	TAILQ_FOREACH(mb, &conf->mousebindq, entry)
 	{
 		if (e->button == mb->press.button && e->state == mb->modmask) break;
 	}
@@ -318,7 +318,7 @@ static void xev_handle_keypress(XEvent* ee)
 
 	e->state &= ~IGNOREMODMASK;
 
-	TAILQ_FOREACH(kb, &conf.keybindq, entry)
+	TAILQ_FOREACH(kb, &conf->keybindq, entry)
 	{
 		if (keysym != kb->press.keysym && skeysym == kb->press.keysym)
 			modshift = ShiftMask;
@@ -410,7 +410,7 @@ static void xev_handle_clientmessage(XEvent* ee)
 			 */
 			if (e->data.l[0] == UINT64_MAX)
 				group_movetogroup(cc, 0);
-			else if (e->data.l[0] >= 0 && e->data.l[0] < conf.ngroups)
+			else if (e->data.l[0] >= 0 && e->data.l[0] < conf->ngroups)
 				group_movetogroup(cc, e->data.l[0]);
 		}
 	} else if (e->message_type == ewmh[_NET_WM_STATE]) {
@@ -419,7 +419,7 @@ static void xev_handle_clientmessage(XEvent* ee)
 		}
 	} else if (e->message_type == ewmh[_NET_CURRENT_DESKTOP]) {
 		if ((sc = screen_find(e->window)) != nullptr) {
-			if (e->data.l[0] >= 0 && e->data.l[0] < conf.ngroups) group_only(sc, e->data.l[0]);
+			if (e->data.l[0] >= 0 && e->data.l[0] < conf->ngroups) group_only(sc, e->data.l[0]);
 		}
 	}
 }
@@ -472,7 +472,7 @@ void xev_process()
 
 	while (XPending(X_Dpy)) {
 		XNextEvent(X_Dpy, &e);
-		if ((e.type - conf.xrandr_event_base) == RRScreenChangeNotify)
+		if ((e.type - conf->xrandr_event_base) == RRScreenChangeNotify)
 			xev_handle_randr(&e);
 		else if ((e.type < LASTEvent) && (xev_handlers[e.type] != nullptr))
 			(*xev_handlers[e.type])(&e);

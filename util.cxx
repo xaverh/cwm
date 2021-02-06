@@ -113,7 +113,7 @@ void log_debug(int level, char const* func, char const* msg, ...)
 	char* fmt;
 	va_list ap;
 
-	if (conf.debug < level) return;
+	if (conf->debug < level) return;
 
 	va_start(ap, msg);
 	xasprintf(&fmt, "debug%d: %s: %s", level, func, msg);

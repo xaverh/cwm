@@ -226,8 +226,8 @@ void xu_ewmh_net_supported_wm_check(Screen_ctx* sc)
 	                cwmh[UTF8_STRING],
 	                8,
 	                PropModeReplace,
-	                (unsigned char*)conf.wmname,
-	                strlen(conf.wmname));
+	                (unsigned char*)conf->wmname.data(),
+	                conf->wmname.length());
 }
 
 void xu_ewmh_net_desktop_geometry(Screen_ctx* sc)
@@ -260,7 +260,7 @@ void xu_ewmh_net_desktop_viewport(Screen_ctx* sc)
 void xu_ewmh_net_workarea(Screen_ctx* sc)
 {
 	unsigned long* workarea;
-	int i, ngroups = conf.ngroups;
+	int i, ngroups = conf->ngroups;
 
 	workarea = (unsigned long*)xreallocarray(nullptr, ngroups * 4, sizeof(unsigned long));
 	for (i = 0; i < ngroups; i++) {
@@ -343,7 +343,7 @@ void xu_ewmh_net_active_window(Screen_ctx* sc, Window w)
 
 void xu_ewmh_net_number_of_desktops(Screen_ctx* sc)
 {
-	long ndesks = conf.ngroups;
+	long ndesks = conf->ngroups;
 
 	XChangeProperty(X_Dpy,
 	                sc->rootwin,
