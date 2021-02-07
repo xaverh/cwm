@@ -622,7 +622,7 @@ void kbfunc_menu_exec(void* ctx, [[maybe_unused]] Cargs* cargs)
 		u_spawn(mi->text);
 	}
 out:
-	if (mi != nullptr && mi->dummy) free(mi);
+	if (mi != nullptr && mi->dummy) std::free(mi);
 	menuq_clear(&menuq);
 }
 
@@ -684,7 +684,7 @@ menu:
 		u_spawn(path);
 	}
 out:
-	if (mi != nullptr && mi->dummy) free(mi);
+	if (mi != nullptr && mi->dummy) std::free(mi);
 	menuq_clear(&menuq);
 }
 
@@ -692,7 +692,7 @@ void kbfunc_client_menu_label(void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	auto cc = (Client_ctx*)ctx;
 	Menu* mi;
-	struct menu_q menuq;
+	menu_q menuq {};
 	int mflags = (CWM_MENU_DUMMY);
 
 	TAILQ_INIT(&menuq);
@@ -707,7 +707,7 @@ void kbfunc_client_menu_label(void* ctx, [[maybe_unused]] Cargs* cargs)
 	                 search_print_text);
 
 	if (!mi->abort) { cc->label = mi->text; }
-	free(mi);
+	std::free(mi);
 }
 
 void kbfunc_exec_cmd([[maybe_unused]] void* ctx, Cargs* cargs)

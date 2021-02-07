@@ -288,8 +288,8 @@ struct Menu {
 	char text[MENU_MAXENTRY + 1];
 	char print[MENU_MAXENTRY + 1];
 	void* ctx;
-	short dummy;
-	short abort;
+	bool dummy;
+	bool abort;
 };
 
 TAILQ_HEAD(menu_q, Menu);
@@ -308,7 +308,7 @@ struct Conf {
 	cmd_q cmdq {nullptr, nullptr};
 	std::list<Cmd_ctx*> wmq;
 	int ngroups {0};
-	int stickygroups {0};
+	bool stickygroups {false};
 	int nameqlen {5};
 	int bwidth {1};
 	int mamount {1};

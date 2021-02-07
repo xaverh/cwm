@@ -20,6 +20,7 @@
  */
 
 #include "calmwm.hxx"
+#include "config.hxx"
 #include "queue.hxx"
 
 #include <algorithm>
@@ -34,23 +35,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define PROMPT_SCHAR "\xc2\xbb"
-#define PROMPT_ECHAR "\xc2\xab"
+static constexpr auto MENUMASK {MOUSEMASK | ButtonMotionMask | KeyPressMask | ExposureMask};
+static constexpr auto MENUGRABMASK {MOUSEMASK | ButtonMotionMask | StructureNotifyMask};
 
-#define MENUMASK (MOUSEMASK | ButtonMotionMask | KeyPressMask | ExposureMask)
-#define MENUGRABMASK (MOUSEMASK | ButtonMotionMask | StructureNotifyMask)
-
-enum ctltype {
-	CTL_NONE = -1,
-	CTL_ERASEONE = 0,
-	CTL_WIPE,
-	CTL_UP,
-	CTL_DOWN,
-	CTL_RETURN,
-	CTL_TAB,
-	CTL_ABORT,
-	CTL_ALL
-};
+enum class Ctltype { none = -1, eraseone = 0, wipe, up, down, ret, tab, abort, all };
 
 struct Menu_ctx {
 	Screen_ctx* sc;
@@ -71,14 +59,376 @@ struct Menu_ctx {
 	void (*print)(Menu*, int);
 };
 
-static Menu* menu_handle_key(XEvent*, Menu_ctx*, struct menu_q*, struct menu_q*);
-static void menu_handle_move(Menu_ctx*, struct menu_q*, int, int);
-static Menu* menu_handle_release(Menu_ctx*, struct menu_q*, int, int);
-static void menu_draw(Menu_ctx*, struct menu_q*, struct menu_q*);
-static void menu_draw_entry(Menu_ctx*, struct menu_q*, int, int);
-static int menu_calc_entry(Menu_ctx*, int, int);
-static Menu* menu_complete_path(Menu_ctx*);
-static int menu_keycode(XKeyEvent*, enum ctltype*, char*);
+namespace {
+Menu* menu_complete_path(Menu_ctx* mc)
+{
+	Screen_ctx* sc = mc->sc;
+	Menu *mi, *mr;
+	struct menu_q menuq;
+	int mflags = (CWM_MENU_DUMMY);
+
+	mr = (Menu*)calloc(1, sizeof(*mr));
+
+	TAILQ_INIT(&menuq);
+
+	if ((mi = menu_filter(sc,
+	                      &menuq,
+	                      mc->searchstr,
+	                      nullptr,
+	                      mflags,
+	                      search_match_path,
+	                      search_print_text))
+	    != nullptr) {
+		mr->abort = mi->abort;
+		mr->dummy = mi->dummy;
+		if (mi->text[0] != '\0')
+			snprintf(mr->text, sizeof(mr->text), "%s \"%s\"", mc->searchstr, mi->text);
+		else if (!mr->abort)
+			strlcpy(mr->text, mc->searchstr, sizeof(mr->text));
+	}
+
+	menuq_clear(&menuq);
+
+	return mr;
+}
+
+int menu_keycode(XKeyEvent* ev, Ctltype* ctl, char* chr)
+{
+	KeySym ks;
+
+	*ctl = Ctltype::none;
+	chr[0] = '\0';
+
+	ks = XkbKeycodeToKeysym(X_Dpy, ev->keycode, 0, (ev->state & ShiftMask) ? 1 : 0);
+
+	/* Look for control characters. */
+	switch (ks) {
+	case XK_BackSpace: *ctl = Ctltype::eraseone; break;
+	case XK_KP_Enter:
+	case XK_Return: *ctl = Ctltype::ret; break;
+	case XK_Tab: *ctl = Ctltype::tab; break;
+	case XK_Up: *ctl = Ctltype::up; break;
+	case XK_Down: *ctl = Ctltype::down; break;
+	case XK_Escape: *ctl = Ctltype::abort; break;
+	}
+
+	if (*ctl == Ctltype::none && (ev->state & ControlMask)) {
+		switch (ks) {
+		case XK_s:
+		case XK_S:
+			/* Emacs "next" */
+			*ctl = Ctltype::down;
+			break;
+		case XK_r:
+		case XK_R:
+			/* Emacs "previous" */
+			*ctl = Ctltype::up;
+			break;
+		case XK_u:
+		case XK_U: *ctl = Ctltype::wipe; break;
+		case XK_h:
+		case XK_H: *ctl = Ctltype::eraseone; break;
+		case XK_a:
+		case XK_A: *ctl = Ctltype::all; break;
+		case XK_bracketleft: *ctl = Ctltype::abort; break;
+		}
+	}
+
+	if (*ctl == Ctltype::none && (ev->state & Mod1Mask)) {
+		switch (ks) {
+		case XK_j:
+		case XK_J:
+			/* Vi "down" */
+			*ctl = Ctltype::down;
+			break;
+		case XK_k:
+		case XK_K:
+			/* Vi "up" */
+			*ctl = Ctltype::up;
+			break;
+		}
+	}
+
+	if (*ctl != Ctltype::none) return 0;
+
+	if (XLookupString(ev, chr, 32, &ks, nullptr) < 0) return -1;
+
+	return 0;
+}
+
+Menu* menu_handle_key(XEvent* e, Menu_ctx* mc, struct menu_q* menuq, struct menu_q* resultq)
+{
+	Menu* mi;
+	Ctltype ctl;
+	char chr[32];
+	size_t len;
+	int clen, i;
+	wchar_t wc;
+
+	if (menu_keycode(&e->xkey, &ctl, chr) < 0) return nullptr;
+
+	switch (ctl) {
+	case Ctltype::eraseone:
+		if ((len = strlen(mc->searchstr)) > 0) {
+			clen = 1;
+			while (mbtowc(&wc, &mc->searchstr[len - clen], MB_CUR_MAX) == -1) clen++;
+			for (i = 1; i <= clen; i++) mc->searchstr[len - i] = '\0';
+			mc->changed = 1;
+		}
+		break;
+	case Ctltype::up:
+		mi = TAILQ_LAST(resultq, menu_q);
+		if (mi == nullptr) break;
+
+		TAILQ_REMOVE(resultq, mi, resultentry);
+		TAILQ_INSERT_HEAD(resultq, mi, resultentry);
+		break;
+	case Ctltype::down:
+		mi = TAILQ_FIRST(resultq);
+		if (mi == nullptr) break;
+
+		TAILQ_REMOVE(resultq, mi, resultentry);
+		TAILQ_INSERT_TAIL(resultq, mi, resultentry);
+		break;
+	case Ctltype::ret:
+		/*
+		 * Return whatever the cursor is currently on. Else
+		 * even if dummy is zero, we need to return something.
+		 */
+		if ((mi = TAILQ_FIRST(resultq)) == nullptr) {
+			mi = (Menu*)std::malloc(sizeof(*mi));
+			(void)strlcpy(mi->text, mc->searchstr, sizeof(mi->text));
+			mi->dummy = true;
+		}
+		mi->abort = false;
+		return mi;
+	case Ctltype::wipe:
+		mc->searchstr[0] = '\0';
+		mc->changed = 1;
+		break;
+	case Ctltype::tab:
+		if ((mi = TAILQ_FIRST(resultq)) != nullptr) {
+			/*
+			 * - We are in exec_path menu mode
+			 * - It is equal to the input
+			 * We got a command, launch the file menu
+			 */
+			if ((mc->flags & CWM_MENU_FILE)
+			    && (strncmp(mc->searchstr, mi->text, strlen(mi->text))) == 0)
+				return menu_complete_path(mc);
+
+			/*
+			 * Put common prefix of the results into searchstr
+			 */
+			(void)strlcpy(mc->searchstr, mi->text, sizeof(mc->searchstr));
+			while ((mi = TAILQ_NEXT(mi, resultentry)) != nullptr) {
+				i = 0;
+				while (tolower(mc->searchstr[i]) == tolower(mi->text[i])) i++;
+				mc->searchstr[i] = '\0';
+			}
+			mc->changed = 1;
+		}
+		break;
+	case Ctltype::all: mc->list = !mc->list; break;
+	case Ctltype::abort:
+		mi = (Menu*)std::malloc(sizeof(*mi));
+		mi->text[0] = '\0';
+		mi->dummy = true;
+		mi->abort = true;
+		return mi;
+	default: break;
+	}
+
+	if (chr[0] != '\0') {
+		mc->changed = 1;
+		strlcat(mc->searchstr, chr, sizeof(mc->searchstr));
+	}
+
+	if (mc->changed) {
+		if (mc->searchstr[0] != '\0') (*mc->match)(menuq, resultq, mc->searchstr);
+	} else if (!mc->list && mc->listing) {
+		TAILQ_INIT(resultq);
+		mc->listing = 0;
+	}
+
+	return nullptr;
+}
+
+void menu_draw_entry(Menu_ctx* mc, struct menu_q* resultq, int entry, int active)
+{
+	Screen_ctx* sc = mc->sc;
+	Menu* mi;
+	int color, i = 1;
+
+	TAILQ_FOREACH(mi, resultq, resultentry)
+	if (entry == i++) break;
+	if (mi == nullptr) return;
+
+	color = (active) ? CWM_COLOR_MENU_FG : CWM_COLOR_MENU_BG;
+	XftDrawRect(mc->xftdraw,
+	            &sc->xftcolor[color],
+	            0,
+	            (sc->xftfont->height + 1) * entry,
+	            mc->geom.w,
+	            (sc->xftfont->height + 1) + sc->xftfont->descent);
+	color = (active) ? CWM_COLOR_MENU_FONT_SEL : CWM_COLOR_MENU_FONT;
+	XftDrawStringUtf8(mc->xftdraw,
+	                  &sc->xftcolor[color],
+	                  sc->xftfont,
+	                  0,
+	                  (sc->xftfont->height + 1) * entry + sc->xftfont->ascent + 1,
+	                  (const FcChar8*)mi->print,
+	                  strlen(mi->print));
+}
+
+int menu_calc_entry(Menu_ctx* mc, int x, int y)
+{
+	Screen_ctx* sc = mc->sc;
+	int entry;
+
+	entry = y / (sc->xftfont->height + 1);
+
+	/* in bounds? */
+	if (x < 0 || x > mc->geom.w || y < 0 || y > (sc->xftfont->height + 1) * mc->num || entry < 0
+	    || entry >= mc->num)
+		entry = -1;
+
+	if (entry == 0) entry = -1;
+
+	return entry;
+}
+
+void menu_handle_move(Menu_ctx* mc, struct menu_q* resultq, int x, int y)
+{
+	mc->prev = mc->entry;
+	mc->entry = menu_calc_entry(mc, x, y);
+
+	if (mc->prev == mc->entry) return;
+
+	if (mc->prev != -1) menu_draw_entry(mc, resultq, mc->prev, 0);
+	if (mc->entry != -1) {
+		XChangeActivePointerGrab(X_Dpy, MENUGRABMASK, conf->cursor[CF_NORMAL], CurrentTime);
+		menu_draw_entry(mc, resultq, mc->entry, 1);
+	}
+}
+
+Menu* menu_handle_release(Menu_ctx* mc, struct menu_q* resultq, int x, int y)
+{
+	Menu* mi;
+	int entry, i = 1;
+
+	entry = menu_calc_entry(mc, x, y);
+
+	TAILQ_FOREACH(mi, resultq, resultentry)
+	if (entry == i++) break;
+	if (mi == nullptr) {
+		mi = (Menu*)std::malloc(sizeof(*mi));
+		mi->text[0] = '\0';
+		mi->dummy = true;
+	}
+	return mi;
+}
+
+void menu_draw(Menu_ctx* mc, struct menu_q* menuq, struct menu_q* resultq)
+{
+	Screen_ctx* sc = mc->sc;
+	Menu* mi;
+	Geom area;
+	int n, xsave, ysave;
+	XGlyphInfo extents;
+
+	if (mc->list) {
+		if (TAILQ_EMPTY(resultq)) {
+			/* Copy them all over. */
+			TAILQ_FOREACH(mi, menuq, entry)
+			TAILQ_INSERT_TAIL(resultq, mi, resultentry);
+
+			mc->listing = 1;
+		} else if (mc->changed)
+			mc->listing = 0;
+	}
+
+	snprintf(mc->dispstr,
+	         sizeof(mc->dispstr),
+	         "%s%s%s%s",
+	         mc->promptstr,
+	         prompt_schar,
+	         mc->searchstr,
+	         prompt_echar);
+	XftTextExtentsUtf8(X_Dpy,
+	                   sc->xftfont,
+	                   (const FcChar8*)mc->dispstr,
+	                   strlen(mc->dispstr),
+	                   &extents);
+	mc->geom.w = extents.xOff;
+	mc->geom.h = sc->xftfont->height + 1;
+	mc->num = 1;
+
+	TAILQ_FOREACH(mi, resultq, resultentry)
+	{
+		(*mc->print)(mi, mc->listing);
+		XftTextExtentsUtf8(X_Dpy,
+		                   sc->xftfont,
+		                   (const FcChar8*)mi->print,
+		                   std::min(strlen(mi->print), MENU_MAXENTRY),
+		                   &extents);
+		mc->geom.w = std::max(mc->geom.w, static_cast<int>(extents.xOff));
+		mc->geom.h += sc->xftfont->height + 1;
+		mc->num++;
+	}
+
+	area = screen_area(sc, mc->geom.x, mc->geom.y, 1);
+	area.w += area.x - conf->bwidth * 2;
+	area.h += area.y - conf->bwidth * 2;
+
+	xsave = mc->geom.x;
+	ysave = mc->geom.y;
+
+	/* Never hide the top, or left side, of the menu. */
+	if (mc->geom.x + mc->geom.w >= area.w) mc->geom.x = area.w - mc->geom.w;
+	if (mc->geom.x < area.x) {
+		mc->geom.x = area.x;
+		mc->geom.w = std::min(mc->geom.w, (area.w - area.x));
+	}
+	if (mc->geom.y + mc->geom.h >= area.h) mc->geom.y = area.h - mc->geom.h;
+	if (mc->geom.y < area.y) {
+		mc->geom.y = area.y;
+		mc->geom.h = std::min(mc->geom.h, (area.h - area.y));
+	}
+
+	if (mc->geom.x != xsave || mc->geom.y != ysave) xu_ptr_set(sc->rootwin, mc->geom.x, mc->geom.y);
+
+	XClearWindow(X_Dpy, mc->win);
+	XMoveResizeWindow(X_Dpy, mc->win, mc->geom.x, mc->geom.y, mc->geom.w, mc->geom.h);
+
+	n = 1;
+	XftDrawStringUtf8(mc->xftdraw,
+	                  &sc->xftcolor[CWM_COLOR_MENU_FONT],
+	                  sc->xftfont,
+	                  0,
+	                  sc->xftfont->ascent,
+	                  (const FcChar8*)mc->dispstr,
+	                  strlen(mc->dispstr));
+
+	TAILQ_FOREACH(mi, resultq, resultentry)
+	{
+		int y = n * (sc->xftfont->height + 1) + sc->xftfont->ascent + 1;
+
+		/* Stop drawing when menu doesn't fit inside the screen. */
+		if (mc->geom.y + y > area.h) break;
+
+		XftDrawStringUtf8(mc->xftdraw,
+		                  &sc->xftcolor[CWM_COLOR_MENU_FONT],
+		                  sc->xftfont,
+		                  0,
+		                  y,
+		                  (const FcChar8*)mi->print,
+		                  strlen(mi->print));
+		n++;
+	}
+	if (n > 1) menu_draw_entry(mc, resultq, 1, 1);
+}
+}
 
 Menu* menu_filter(Screen_ctx* sc,
                   struct menu_q* menuq,
@@ -188,375 +538,6 @@ out:
 	XUngrabKeyboard(X_Dpy, CurrentTime);
 
 	return mi;
-}
-
-static Menu* menu_complete_path(Menu_ctx* mc)
-{
-	Screen_ctx* sc = mc->sc;
-	Menu *mi, *mr;
-	struct menu_q menuq;
-	int mflags = (CWM_MENU_DUMMY);
-
-	mr = (Menu*)calloc(1, sizeof(*mr));
-
-	TAILQ_INIT(&menuq);
-
-	if ((mi = menu_filter(sc,
-	                      &menuq,
-	                      mc->searchstr,
-	                      nullptr,
-	                      mflags,
-	                      search_match_path,
-	                      search_print_text))
-	    != nullptr) {
-		mr->abort = mi->abort;
-		mr->dummy = mi->dummy;
-		if (mi->text[0] != '\0')
-			snprintf(mr->text, sizeof(mr->text), "%s \"%s\"", mc->searchstr, mi->text);
-		else if (!mr->abort)
-			strlcpy(mr->text, mc->searchstr, sizeof(mr->text));
-	}
-
-	menuq_clear(&menuq);
-
-	return mr;
-}
-
-static Menu* menu_handle_key(XEvent* e, Menu_ctx* mc, struct menu_q* menuq, struct menu_q* resultq)
-{
-	Menu* mi;
-	enum ctltype ctl;
-	char chr[32];
-	size_t len;
-	int clen, i;
-	wchar_t wc;
-
-	if (menu_keycode(&e->xkey, &ctl, chr) < 0) return nullptr;
-
-	switch (ctl) {
-	case CTL_ERASEONE:
-		if ((len = strlen(mc->searchstr)) > 0) {
-			clen = 1;
-			while (mbtowc(&wc, &mc->searchstr[len - clen], MB_CUR_MAX) == -1) clen++;
-			for (i = 1; i <= clen; i++) mc->searchstr[len - i] = '\0';
-			mc->changed = 1;
-		}
-		break;
-	case CTL_UP:
-		mi = TAILQ_LAST(resultq, menu_q);
-		if (mi == nullptr) break;
-
-		TAILQ_REMOVE(resultq, mi, resultentry);
-		TAILQ_INSERT_HEAD(resultq, mi, resultentry);
-		break;
-	case CTL_DOWN:
-		mi = TAILQ_FIRST(resultq);
-		if (mi == nullptr) break;
-
-		TAILQ_REMOVE(resultq, mi, resultentry);
-		TAILQ_INSERT_TAIL(resultq, mi, resultentry);
-		break;
-	case CTL_RETURN:
-		/*
-		 * Return whatever the cursor is currently on. Else
-		 * even if dummy is zero, we need to return something.
-		 */
-		if ((mi = TAILQ_FIRST(resultq)) == nullptr) {
-			mi = (Menu*)std::malloc(sizeof(*mi));
-			(void)strlcpy(mi->text, mc->searchstr, sizeof(mi->text));
-			mi->dummy = 1;
-		}
-		mi->abort = 0;
-		return mi;
-	case CTL_WIPE:
-		mc->searchstr[0] = '\0';
-		mc->changed = 1;
-		break;
-	case CTL_TAB:
-		if ((mi = TAILQ_FIRST(resultq)) != nullptr) {
-			/*
-			 * - We are in exec_path menu mode
-			 * - It is equal to the input
-			 * We got a command, launch the file menu
-			 */
-			if ((mc->flags & CWM_MENU_FILE)
-			    && (strncmp(mc->searchstr, mi->text, strlen(mi->text))) == 0)
-				return menu_complete_path(mc);
-
-			/*
-			 * Put common prefix of the results into searchstr
-			 */
-			(void)strlcpy(mc->searchstr, mi->text, sizeof(mc->searchstr));
-			while ((mi = TAILQ_NEXT(mi, resultentry)) != nullptr) {
-				i = 0;
-				while (tolower(mc->searchstr[i]) == tolower(mi->text[i])) i++;
-				mc->searchstr[i] = '\0';
-			}
-			mc->changed = 1;
-		}
-		break;
-	case CTL_ALL: mc->list = !mc->list; break;
-	case CTL_ABORT:
-		mi = (Menu*)std::malloc(sizeof(*mi));
-		mi->text[0] = '\0';
-		mi->dummy = 1;
-		mi->abort = 1;
-		return mi;
-	default: break;
-	}
-
-	if (chr[0] != '\0') {
-		mc->changed = 1;
-		strlcat(mc->searchstr, chr, sizeof(mc->searchstr));
-	}
-
-	if (mc->changed) {
-		if (mc->searchstr[0] != '\0') (*mc->match)(menuq, resultq, mc->searchstr);
-	} else if (!mc->list && mc->listing) {
-		TAILQ_INIT(resultq);
-		mc->listing = 0;
-	}
-
-	return nullptr;
-}
-
-static void menu_draw(Menu_ctx* mc, struct menu_q* menuq, struct menu_q* resultq)
-{
-	Screen_ctx* sc = mc->sc;
-	Menu* mi;
-	Geom area;
-	int n, xsave, ysave;
-	XGlyphInfo extents;
-
-	if (mc->list) {
-		if (TAILQ_EMPTY(resultq)) {
-			/* Copy them all over. */
-			TAILQ_FOREACH(mi, menuq, entry)
-			TAILQ_INSERT_TAIL(resultq, mi, resultentry);
-
-			mc->listing = 1;
-		} else if (mc->changed)
-			mc->listing = 0;
-	}
-
-	(void)snprintf(mc->dispstr,
-	               sizeof(mc->dispstr),
-	               "%s%s%s%s",
-	               mc->promptstr,
-	               PROMPT_SCHAR,
-	               mc->searchstr,
-	               PROMPT_ECHAR);
-	XftTextExtentsUtf8(X_Dpy,
-	                   sc->xftfont,
-	                   (const FcChar8*)mc->dispstr,
-	                   strlen(mc->dispstr),
-	                   &extents);
-	mc->geom.w = extents.xOff;
-	mc->geom.h = sc->xftfont->height + 1;
-	mc->num = 1;
-
-	TAILQ_FOREACH(mi, resultq, resultentry)
-	{
-		(*mc->print)(mi, mc->listing);
-		XftTextExtentsUtf8(X_Dpy,
-		                   sc->xftfont,
-		                   (const FcChar8*)mi->print,
-		                   std::min(strlen(mi->print), MENU_MAXENTRY),
-		                   &extents);
-		mc->geom.w = std::max(mc->geom.w, static_cast<int>(extents.xOff));
-		mc->geom.h += sc->xftfont->height + 1;
-		mc->num++;
-	}
-
-	area = screen_area(sc, mc->geom.x, mc->geom.y, 1);
-	area.w += area.x - conf->bwidth * 2;
-	area.h += area.y - conf->bwidth * 2;
-
-	xsave = mc->geom.x;
-	ysave = mc->geom.y;
-
-	/* Never hide the top, or left side, of the menu. */
-	if (mc->geom.x + mc->geom.w >= area.w) mc->geom.x = area.w - mc->geom.w;
-	if (mc->geom.x < area.x) {
-		mc->geom.x = area.x;
-		mc->geom.w = std::min(mc->geom.w, (area.w - area.x));
-	}
-	if (mc->geom.y + mc->geom.h >= area.h) mc->geom.y = area.h - mc->geom.h;
-	if (mc->geom.y < area.y) {
-		mc->geom.y = area.y;
-		mc->geom.h = std::min(mc->geom.h, (area.h - area.y));
-	}
-
-	if (mc->geom.x != xsave || mc->geom.y != ysave) xu_ptr_set(sc->rootwin, mc->geom.x, mc->geom.y);
-
-	XClearWindow(X_Dpy, mc->win);
-	XMoveResizeWindow(X_Dpy, mc->win, mc->geom.x, mc->geom.y, mc->geom.w, mc->geom.h);
-
-	n = 1;
-	XftDrawStringUtf8(mc->xftdraw,
-	                  &sc->xftcolor[CWM_COLOR_MENU_FONT],
-	                  sc->xftfont,
-	                  0,
-	                  sc->xftfont->ascent,
-	                  (const FcChar8*)mc->dispstr,
-	                  strlen(mc->dispstr));
-
-	TAILQ_FOREACH(mi, resultq, resultentry)
-	{
-		int y = n * (sc->xftfont->height + 1) + sc->xftfont->ascent + 1;
-
-		/* Stop drawing when menu doesn't fit inside the screen. */
-		if (mc->geom.y + y > area.h) break;
-
-		XftDrawStringUtf8(mc->xftdraw,
-		                  &sc->xftcolor[CWM_COLOR_MENU_FONT],
-		                  sc->xftfont,
-		                  0,
-		                  y,
-		                  (const FcChar8*)mi->print,
-		                  strlen(mi->print));
-		n++;
-	}
-	if (n > 1) menu_draw_entry(mc, resultq, 1, 1);
-}
-
-static void menu_draw_entry(Menu_ctx* mc, struct menu_q* resultq, int entry, int active)
-{
-	Screen_ctx* sc = mc->sc;
-	Menu* mi;
-	int color, i = 1;
-
-	TAILQ_FOREACH(mi, resultq, resultentry)
-	if (entry == i++) break;
-	if (mi == nullptr) return;
-
-	color = (active) ? CWM_COLOR_MENU_FG : CWM_COLOR_MENU_BG;
-	XftDrawRect(mc->xftdraw,
-	            &sc->xftcolor[color],
-	            0,
-	            (sc->xftfont->height + 1) * entry,
-	            mc->geom.w,
-	            (sc->xftfont->height + 1) + sc->xftfont->descent);
-	color = (active) ? CWM_COLOR_MENU_FONT_SEL : CWM_COLOR_MENU_FONT;
-	XftDrawStringUtf8(mc->xftdraw,
-	                  &sc->xftcolor[color],
-	                  sc->xftfont,
-	                  0,
-	                  (sc->xftfont->height + 1) * entry + sc->xftfont->ascent + 1,
-	                  (const FcChar8*)mi->print,
-	                  strlen(mi->print));
-}
-
-static void menu_handle_move(Menu_ctx* mc, struct menu_q* resultq, int x, int y)
-{
-	mc->prev = mc->entry;
-	mc->entry = menu_calc_entry(mc, x, y);
-
-	if (mc->prev == mc->entry) return;
-
-	if (mc->prev != -1) menu_draw_entry(mc, resultq, mc->prev, 0);
-	if (mc->entry != -1) {
-		XChangeActivePointerGrab(X_Dpy, MENUGRABMASK, conf->cursor[CF_NORMAL], CurrentTime);
-		menu_draw_entry(mc, resultq, mc->entry, 1);
-	}
-}
-
-static Menu* menu_handle_release(Menu_ctx* mc, struct menu_q* resultq, int x, int y)
-{
-	Menu* mi;
-	int entry, i = 1;
-
-	entry = menu_calc_entry(mc, x, y);
-
-	TAILQ_FOREACH(mi, resultq, resultentry)
-	if (entry == i++) break;
-	if (mi == nullptr) {
-		mi = (Menu*)std::malloc(sizeof(*mi));
-		mi->text[0] = '\0';
-		mi->dummy = 1;
-	}
-	return mi;
-}
-
-static int menu_calc_entry(Menu_ctx* mc, int x, int y)
-{
-	Screen_ctx* sc = mc->sc;
-	int entry;
-
-	entry = y / (sc->xftfont->height + 1);
-
-	/* in bounds? */
-	if (x < 0 || x > mc->geom.w || y < 0 || y > (sc->xftfont->height + 1) * mc->num || entry < 0
-	    || entry >= mc->num)
-		entry = -1;
-
-	if (entry == 0) entry = -1;
-
-	return entry;
-}
-
-static int menu_keycode(XKeyEvent* ev, enum ctltype* ctl, char* chr)
-{
-	KeySym ks;
-
-	*ctl = CTL_NONE;
-	chr[0] = '\0';
-
-	ks = XkbKeycodeToKeysym(X_Dpy, ev->keycode, 0, (ev->state & ShiftMask) ? 1 : 0);
-
-	/* Look for control characters. */
-	switch (ks) {
-	case XK_BackSpace: *ctl = CTL_ERASEONE; break;
-	case XK_KP_Enter:
-	case XK_Return: *ctl = CTL_RETURN; break;
-	case XK_Tab: *ctl = CTL_TAB; break;
-	case XK_Up: *ctl = CTL_UP; break;
-	case XK_Down: *ctl = CTL_DOWN; break;
-	case XK_Escape: *ctl = CTL_ABORT; break;
-	}
-
-	if (*ctl == CTL_NONE && (ev->state & ControlMask)) {
-		switch (ks) {
-		case XK_s:
-		case XK_S:
-			/* Emacs "next" */
-			*ctl = CTL_DOWN;
-			break;
-		case XK_r:
-		case XK_R:
-			/* Emacs "previous" */
-			*ctl = CTL_UP;
-			break;
-		case XK_u:
-		case XK_U: *ctl = CTL_WIPE; break;
-		case XK_h:
-		case XK_H: *ctl = CTL_ERASEONE; break;
-		case XK_a:
-		case XK_A: *ctl = CTL_ALL; break;
-		case XK_bracketleft: *ctl = CTL_ABORT; break;
-		}
-	}
-
-	if (*ctl == CTL_NONE && (ev->state & Mod1Mask)) {
-		switch (ks) {
-		case XK_j:
-		case XK_J:
-			/* Vi "down" */
-			*ctl = CTL_DOWN;
-			break;
-		case XK_k:
-		case XK_K:
-			/* Vi "up" */
-			*ctl = CTL_UP;
-			break;
-		}
-	}
-
-	if (*ctl != CTL_NONE) return 0;
-
-	if (XLookupString(ev, chr, 32, &ks, nullptr) < 0) return -1;
-
-	return 0;
 }
 
 void menuq_add(struct menu_q* mq, void* ctx, char const* fmt, ...)

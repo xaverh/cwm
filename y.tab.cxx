@@ -384,7 +384,7 @@ yyreduce:
 	case 9: /* yesno: YES  */ (yyval.v.number) = 1; break;
 	case 10: /* yesno: NO  */ (yyval.v.number) = 0; break;
 	case 11: /* main: FONTNAME STRING  */ conf->font = (yyvsp[0].v.string); break;
-	case 12: /* main: STICKY yesno  */ conf->stickygroups = (yyvsp[0].v.number); break;
+	case 12: /* main: STICKY yesno  */ conf->stickygroups = bool(yyvsp[0].v.number); break;
 	case 13: /* main: BORDERWIDTH NUMBER  */
 		if (yyvsp[0].v.number < 0 || yyvsp[0].v.number > INT_MAX) {
 			yyerror("invalid borderwidth");
