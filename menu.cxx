@@ -307,7 +307,7 @@ static Menu* menu_handle_key(XEvent* e, Menu_ctx* mc, struct menu_q* menuq, stru
 
 	if (chr[0] != '\0') {
 		mc->changed = 1;
-		(void)strlcat(mc->searchstr, chr, sizeof(mc->searchstr));
+		strlcat(mc->searchstr, chr, sizeof(mc->searchstr));
 	}
 
 	if (mc->changed) {

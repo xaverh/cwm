@@ -151,31 +151,6 @@
   },
   {
     "directory": "/home/xha/src/cwm",
-    "file": "reallocarray.cxx",
-    "output": "",
-    "arguments": [
-      "/usr/bin/clang++-11",
-      "-std=c++20",
-      "reallocarray.cxx",
-      "-g",
-      "-O3",
-      "-pipe",
-      "-Wall",
-      "-I",
-      "/usr/include/freetype2",
-      "-I",
-      "/usr/include/libpng16",
-      "-I",
-      "/usr/include/harfbuzz",
-      "-I",
-      "/usr/include/glib-2.0",
-      "-I",
-      "/usr/lib/glib-2.0/include",
-      "--target=x86_64-pc-linux-gnu"
-    ]
-  },
-  {
-    "directory": "/home/xha/src/cwm",
     "file": "screen.cxx",
     "output": "",
     "arguments": [

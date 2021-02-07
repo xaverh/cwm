@@ -254,7 +254,7 @@ struct Bind_ctx {
 	TAILQ_ENTRY(Bind_ctx) entry;
 	void (*callback)(void*, Cargs*);
 	Cargs* cargs;
-	enum Context context;
+	Context context;
 	unsigned int modmask;
 	union {
 		KeySym keysym;
@@ -386,7 +386,7 @@ enum Cwmh : std::size_t {
 	CWMH_NITEMS
 };
 
-#define _NET_WM_STATES_NITEMS 9
+static constexpr auto _NET_WM_STATES_NITEMS {9};
 
 enum Ewmh {
 	_NET_SUPPORTED,
