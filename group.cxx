@@ -32,10 +32,69 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-static Group_ctx* group_next(Group_ctx*);
-static Group_ctx* group_prev(Group_ctx*);
-static void group_restack(Group_ctx*);
-static void group_set_active(Group_ctx*);
+namespace {
+void group_restack(Group_ctx* gc)
+{
+	Screen_ctx* sc = gc->sc;
+	Client_ctx* cc;
+	Window* winlist;
+	int i, lastempty = -1;
+	int nwins = 0, highstack = 0;
+
+	TAILQ_FOREACH(cc, &sc->clientq, entry)
+	{
+		if (cc->gc != gc) continue;
+		if (cc->stackingorder > highstack) highstack = cc->stackingorder;
+	}
+	winlist = (Window*)reallocarray(nullptr, (highstack + 1), sizeof(*winlist));
+
+	/* Invert the stacking order for XRestackWindows(). */
+	TAILQ_FOREACH(cc, &sc->clientq, entry)
+	{
+		if (cc->gc != gc) continue;
+		winlist[highstack - cc->stackingorder] = cc->win;
+		nwins++;
+	}
+
+	/* Un-sparseify */
+	for (i = 0; i <= highstack; i++) {
+		if (!winlist[i] && lastempty == -1)
+			lastempty = i;
+		else if (winlist[i] && lastempty != -1) {
+			winlist[lastempty] = winlist[i];
+			if (++lastempty == i) lastempty = -1;
+		}
+	}
+
+	XRestackWindows(X_Dpy, winlist, nwins);
+	std::free(winlist);
+}
+
+void group_set_active(Group_ctx* gc)
+{
+	Screen_ctx* sc = gc->sc;
+	sc->group_active = gc;
+	xu_ewmh_net_current_desktop(sc);
+}
+
+Group_ctx* group_next(Group_ctx* gc)
+{
+	Screen_ctx* sc = gc->sc;
+	Group_ctx* newgc;
+
+	return (((newgc = TAILQ_NEXT(gc, entry)) != nullptr) ? newgc : TAILQ_FIRST(&sc->groupq));
+}
+
+Group_ctx* group_prev(Group_ctx* gc)
+{
+	Screen_ctx* sc = gc->sc;
+	Group_ctx* newgc;
+
+	return (((newgc = TAILQ_PREV(gc, group_q, entry)) != nullptr)
+	            ? newgc
+	            : TAILQ_LAST(&sc->groupq, group_q));
+}
+}
 
 void group_assign(Group_ctx* gc, Client_ctx* cc)
 {
@@ -74,43 +133,6 @@ void group_show(Group_ctx* gc)
 	group_set_active(gc);
 }
 
-static void group_restack(Group_ctx* gc)
-{
-	Screen_ctx* sc = gc->sc;
-	Client_ctx* cc;
-	Window* winlist;
-	int i, lastempty = -1;
-	int nwins = 0, highstack = 0;
-
-	TAILQ_FOREACH(cc, &sc->clientq, entry)
-	{
-		if (cc->gc != gc) continue;
-		if (cc->stackingorder > highstack) highstack = cc->stackingorder;
-	}
-	winlist = (Window*)reallocarray(nullptr, (highstack + 1), sizeof(*winlist));
-
-	/* Invert the stacking order for XRestackWindows(). */
-	TAILQ_FOREACH(cc, &sc->clientq, entry)
-	{
-		if (cc->gc != gc) continue;
-		winlist[highstack - cc->stackingorder] = cc->win;
-		nwins++;
-	}
-
-	/* Un-sparseify */
-	for (i = 0; i <= highstack; i++) {
-		if (!winlist[i] && lastempty == -1)
-			lastempty = i;
-		else if (winlist[i] && lastempty != -1) {
-			winlist[lastempty] = winlist[i];
-			if (++lastempty == i) lastempty = -1;
-		}
-	}
-
-	XRestackWindows(X_Dpy, winlist, nwins);
-	free(winlist);
-}
-
 void group_init(Screen_ctx* sc, int num, char const* name)
 {
 	Group_ctx* gc;
@@ -122,15 +144,6 @@ void group_init(Screen_ctx* sc, int num, char const* name)
 	TAILQ_INSERT_TAIL(&sc->groupq, gc, entry);
 
 	if (num == 1) group_set_active(gc);
-}
-
-void group_set_active(Group_ctx* gc)
-{
-	Screen_ctx* sc = gc->sc;
-
-	sc->group_active = gc;
-
-	xu_ewmh_net_current_desktop(sc);
 }
 
 void group_movetogroup(Client_ctx* cc, int idx)
@@ -273,24 +286,6 @@ void group_cycle(Screen_ctx* sc, int flags)
 		group_show(showgroup);
 	else
 		group_set_active(showgroup);
-}
-
-static Group_ctx* group_next(Group_ctx* gc)
-{
-	Screen_ctx* sc = gc->sc;
-	Group_ctx* newgc;
-
-	return (((newgc = TAILQ_NEXT(gc, entry)) != nullptr) ? newgc : TAILQ_FIRST(&sc->groupq));
-}
-
-static Group_ctx* group_prev(Group_ctx* gc)
-{
-	Screen_ctx* sc = gc->sc;
-	Group_ctx* newgc;
-
-	return (((newgc = TAILQ_PREV(gc, group_q, entry)) != nullptr)
-	            ? newgc
-	            : TAILQ_LAST(&sc->groupq, group_q));
 }
 
 int group_restore(Client_ctx* cc)

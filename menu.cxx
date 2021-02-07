@@ -88,8 +88,8 @@ Menu* menu_filter(Screen_ctx* sc,
                   void (*match)(struct menu_q*, struct menu_q*, char*),
                   void (*print)(Menu*, int))
 {
-	Menu_ctx mc;
-	struct menu_q resultq;
+	Menu_ctx mc {};
+	menu_q resultq {};
 	Menu* mi = nullptr;
 	XEvent e;
 	Window focuswin;
@@ -159,7 +159,7 @@ Menu* menu_filter(Screen_ctx* sc,
 		switch (e.type) {
 		case KeyPress:
 			if ((mi = menu_handle_key(&e, &mc, menuq, &resultq)) != nullptr) goto out;
-			/* FALLTHROUGH */
+			[[fallthrough]];
 		case Expose: menu_draw(&mc, menuq, &resultq); break;
 		case MotionNotify: menu_handle_move(&mc, &resultq, e.xbutton.x, e.xbutton.y); break;
 		case ButtonRelease:

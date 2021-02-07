@@ -63,6 +63,7 @@ Client_ctx* client_init(Window win, Screen_ctx* sc)
 	cc->gc = nullptr;
 	cc->res_class = nullptr;
 	cc->res_name = nullptr;
+	cc->label = "";
 	cc->flags = 0;
 	cc->stackingorder = 0;
 	cc->initial_state = 0;

@@ -701,12 +701,12 @@ void kbfunc_client_menu_label(void* ctx, [[maybe_unused]] Cargs* cargs)
 	mi = menu_filter(cc->sc,
 	                 &menuq,
 	                 "label",
-	                 cc->label.c_str(),
+	                 cc->label,
 	                 mflags,
 	                 search_match_text,
 	                 search_print_text);
 
-	if (!mi->abort) { cc->label = strdup(mi->text); }
+	if (!mi->abort) { cc->label = mi->text; }
 	free(mi);
 }
 

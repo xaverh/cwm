@@ -420,7 +420,7 @@ void xu_ewmh_net_desktop_names(Screen_ctx* sc)
 		TAILQ_FOREACH(gc, &sc->groupq, entry)
 		{
 			if (gc->num == n) {
-				free(gc->name);
+				std::free(gc->name);
 				gc->name = strdup(p);
 				p += strlen(p) + 1;
 				break;
@@ -451,7 +451,7 @@ void xu_ewmh_net_desktop_names(Screen_ctx* sc)
 	                PropModeReplace,
 	                (unsigned char*)p,
 	                len);
-	free(p);
+	std::free(p);
 }
 
 /* Application Window Properties */

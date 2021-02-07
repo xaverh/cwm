@@ -80,7 +80,7 @@ char* u_argv(char* const* argv)
 	int i;
 	char* p;
 
-	if (argv == 0) return nullptr;
+	if (argv == nullptr) return nullptr;
 
 	for (i = 0; argv[i]; i++) siz += strlen(argv[i]) + 1;
 	if (siz == 0) return nullptr;

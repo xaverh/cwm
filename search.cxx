@@ -21,6 +21,7 @@
 #include "calmwm.hxx"
 #include "queue.hxx"
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <climits>
@@ -39,14 +40,17 @@
 
 static void match_path_type(struct menu_q*, char*, int);
 
-static bool match_substr(std::string_view sub, std::string_view str, bool zeroidx = false)
+static bool match_substr(std::string_view const& sub,
+                         std::string_view const& str,
+                         bool zeroidx = false)
 {
 	if (sub.empty() || str.empty()) return false;
 	if (sub.length() > str.length()) return false;
 
 	auto flen {zeroidx ? 0 : str.length() - sub.length()};
-	for (decltype(flen) n {0}; n <= flen; n++)
+	for (decltype(flen) n {0}; n <= flen; ++n)
 		if (strncasecmp(sub.data(), str.substr(n).data(), sub.length()) == 0) return true;
+	// if (sub == str.substr(n)) return true;
 
 	return false;
 }
@@ -220,7 +224,7 @@ void search_print_client(Menu* mi, int listing)
 	         "(%d) %c[%s] %s",
 	         (cc->gc) ? cc->gc->num : 0,
 	         flag,
-	         (!cc->label.empty()) ? cc->label.c_str() : "",
+	         cc->label ? cc->label : "",
 	         cc->name);
 }
 

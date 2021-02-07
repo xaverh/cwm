@@ -151,7 +151,7 @@ struct Client_ctx {
 	int stackingorder;
 	name_q nameq;
 	char* name;
-	std::string label;
+	char* label;
 	char* res_class;   /* class hint */
 	char* res_name;    /* class hint */
 	int initial_state; /* wm hint */
