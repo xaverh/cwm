@@ -87,7 +87,7 @@ static void group_restack(Group_ctx* gc)
 		if (cc->gc != gc) continue;
 		if (cc->stackingorder > highstack) highstack = cc->stackingorder;
 	}
-	winlist = (Window*)xreallocarray(nullptr, (highstack + 1), sizeof(*winlist));
+	winlist = (Window*)reallocarray(nullptr, (highstack + 1), sizeof(*winlist));
 
 	/* Invert the stacking order for XRestackWindows(). */
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
@@ -115,9 +115,9 @@ void group_init(Screen_ctx* sc, int num, char const* name)
 {
 	Group_ctx* gc;
 
-	gc = (Group_ctx*)xmalloc(sizeof(*gc));
+	gc = (Group_ctx*)std::malloc(sizeof(*gc));
 	gc->sc = sc;
-	gc->name = xstrdup(name);
+	gc->name = strdup(name);
 	gc->num = num;
 	TAILQ_INSERT_TAIL(&sc->groupq, gc, entry);
 

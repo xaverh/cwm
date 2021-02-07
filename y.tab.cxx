@@ -214,8 +214,6 @@ static constexpr int_least8_t yyr1[]
 static constexpr int_least8_t yyr2[] = {0, 2, 0, 2, 3, 3, 3, 2, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3,
                                         3, 3, 5, 2, 5, 3, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
 
-enum { YYENOMEM = -2 };
-
 /* YYINITDEPTH -- initial size of the parser's stacks.  */
 static constexpr auto YYINITDEPTH {200};
 
@@ -337,11 +335,10 @@ yybackup:
 
 	/* Count tokens shifted since error; after three, turn off error
 	   status.  */
-	if (yyerrstatus) yyerrstatus--;
+	if (yyerrstatus) --yyerrstatus;
 
 	/* Shift the lookahead token.  */
 	yystate = yyn;
-
 	*++yyvsp = yylval;
 
 	/* Discard the shifted token.  */
@@ -373,7 +370,7 @@ yyreduce:
 	yyval = yyvsp[1 - yylen];
 
 	switch (yyn) {
-	case 6: /* grammar: grammar error '\n'  */ file->errors++; break;
+	case 6: /* grammar: grammar error '\n'  */ ++file->errors; break;
 	case 7: /* string: string STRING  */
 		if (asprintf(&(yyval.v.string), "%s %s", (yyvsp[-1].v.string), (yyvsp[0].v.string)) == -1) {
 			std::free(yyvsp[-1].v.string);
@@ -888,7 +885,7 @@ int yylex()
 			}
 			*p++ = (char)c;
 		}
-		yylval.v.string = xstrdup(buf);
+		yylval.v.string = strdup(buf);
 		return (STRING);
 	}
 
@@ -933,7 +930,7 @@ nodigits:
 		                  && c != '>' && c != '!' && c != '=' && c != '#' && c != ','))));
 		lungetc(c);
 		*p = '\0';
-		if ((token = lookup(buf)) == STRING) yylval.v.string = xstrdup(buf);
+		if ((token = lookup(buf)) == STRING) yylval.v.string = strdup(buf);
 		return (token);
 	}
 	if (c == '\n') {
@@ -948,8 +945,8 @@ struct file* pushfile(char const* name, FILE* stream)
 {
 	struct file* nfile;
 
-	nfile = (struct file*)xcalloc(1, sizeof(struct file));
-	nfile->name = xstrdup(name);
+	nfile = (struct file*)calloc(1, sizeof(struct file));
+	nfile->name = strdup(name);
 	nfile->stream = stream;
 	nfile->lineno = 1;
 	TAILQ_INSERT_TAIL(&files, nfile, entry);

@@ -667,12 +667,4 @@ void u_spawn(char*);
 void log_debug(int, char const*, char const*, ...) __attribute__((__format__(printf, 3, 4)))
 __attribute__((__nonnull__(3)));
 
-void* xcalloc(size_t, size_t);
-void* xmalloc(size_t);
-void* xreallocarray(void*, size_t, size_t);
-char* xstrdup(char const*);
-int xasprintf(char**, char const*, ...) __attribute__((__format__(printf, 2, 3)))
-__attribute__((__nonnull__(2)));
-int xvasprintf(char**, char const*, va_list) __attribute__((__nonnull__(2)));
-
 #endif /* _CALMWM_H_ */

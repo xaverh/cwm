@@ -81,12 +81,12 @@ static Menu* menu_complete_path(Menu_ctx*);
 static int menu_keycode(XKeyEvent*, enum ctltype*, char*);
 
 Menu* menu_filter(Screen_ctx* sc,
-                         struct menu_q* menuq,
-                         char const* prompt,
-                         char const* initial,
-                         int flags,
-                         void (*match)(struct menu_q*, struct menu_q*, char*),
-                         void (*print)(Menu*, int))
+                  struct menu_q* menuq,
+                  char const* prompt,
+                  char const* initial,
+                  int flags,
+                  void (*match)(struct menu_q*, struct menu_q*, char*),
+                  void (*print)(Menu*, int))
 {
 	Menu_ctx mc;
 	struct menu_q resultq;
@@ -197,7 +197,7 @@ static Menu* menu_complete_path(Menu_ctx* mc)
 	struct menu_q menuq;
 	int mflags = (CWM_MENU_DUMMY);
 
-	mr = (Menu*)xcalloc(1, sizeof(*mr));
+	mr = (Menu*)calloc(1, sizeof(*mr));
 
 	TAILQ_INIT(&menuq);
 
@@ -222,10 +222,7 @@ static Menu* menu_complete_path(Menu_ctx* mc)
 	return mr;
 }
 
-static Menu* menu_handle_key(XEvent* e,
-                                    Menu_ctx* mc,
-                                    struct menu_q* menuq,
-                                    struct menu_q* resultq)
+static Menu* menu_handle_key(XEvent* e, Menu_ctx* mc, struct menu_q* menuq, struct menu_q* resultq)
 {
 	Menu* mi;
 	enum ctltype ctl;
@@ -265,7 +262,7 @@ static Menu* menu_handle_key(XEvent* e,
 		 * even if dummy is zero, we need to return something.
 		 */
 		if ((mi = TAILQ_FIRST(resultq)) == nullptr) {
-			mi = (Menu*)xmalloc(sizeof(*mi));
+			mi = (Menu*)std::malloc(sizeof(*mi));
 			(void)strlcpy(mi->text, mc->searchstr, sizeof(mi->text));
 			mi->dummy = 1;
 		}
@@ -300,7 +297,7 @@ static Menu* menu_handle_key(XEvent* e,
 		break;
 	case CTL_ALL: mc->list = !mc->list; break;
 	case CTL_ABORT:
-		mi = (Menu*)xmalloc(sizeof(*mi));
+		mi = (Menu*)std::malloc(sizeof(*mi));
 		mi->text[0] = '\0';
 		mi->dummy = 1;
 		mi->abort = 1;
@@ -474,7 +471,7 @@ static Menu* menu_handle_release(Menu_ctx* mc, struct menu_q* resultq, int x, in
 	TAILQ_FOREACH(mi, resultq, resultentry)
 	if (entry == i++) break;
 	if (mi == nullptr) {
-		mi = (Menu*)xmalloc(sizeof(*mi));
+		mi = (Menu*)std::malloc(sizeof(*mi));
 		mi->text[0] = '\0';
 		mi->dummy = 1;
 	}
@@ -567,7 +564,7 @@ void menuq_add(struct menu_q* mq, void* ctx, char const* fmt, ...)
 	va_list ap;
 	Menu* mi;
 
-	mi = (Menu*)xcalloc(1, sizeof(*mi));
+	mi = (Menu*)calloc(1, sizeof(*mi));
 	mi->ctx = ctx;
 
 	va_start(ap, fmt);

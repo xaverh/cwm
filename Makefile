@@ -5,7 +5,7 @@ PROG=		cwm
 
 PREFIX?=	/usr/local
 
-SRCS=calmwm.cxx group.cxx reallocarray.cxx strlcat.cxx util.cxx xutil.cxx client.cxx  kbfunc.cxx screen.cxx strlcpy.cxx xevents.cxx y.tab.cxx conf.cxx menu.cxx search.cxx strtonum.cxx xmalloc.cxx
+SRCS=calmwm.cxx group.cxx reallocarray.cxx strlcat.cxx util.cxx xutil.cxx client.cxx  kbfunc.cxx screen.cxx strlcpy.cxx xevents.cxx y.tab.cxx conf.cxx menu.cxx search.cxx strtonum.cxx
 
 OBJS=$(subst .cxx,.o,$(SRCS))
 

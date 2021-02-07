@@ -80,11 +80,11 @@ int xu_get_strprop(Window win, Atom atm, char** text)
 			XTextProperty prop2;
 			if (Xutf8TextListToTextProperty(X_Dpy, list, nitems, XUTF8StringStyle, &prop2)
 			    == Success) {
-				*text = xstrdup((char const*)prop2.value);
+				*text = strdup((char const*)prop2.value);
 				XFree(prop2.value);
 			}
 		} else {
-			*text = xstrdup(*list);
+			*text = strdup(*list);
 		}
 		XFreeStringList(list);
 	}
@@ -262,7 +262,7 @@ void xu_ewmh_net_workarea(Screen_ctx* sc)
 	unsigned long* workarea;
 	int i, ngroups = conf->ngroups;
 
-	workarea = (unsigned long*)xreallocarray(nullptr, ngroups * 4, sizeof(unsigned long));
+	workarea = (unsigned long*)reallocarray(nullptr, ngroups * 4, sizeof(unsigned long));
 	for (i = 0; i < ngroups; i++) {
 		workarea[4 * i + 0] = sc->work.x;
 		workarea[4 * i + 1] = sc->work.y;
@@ -290,7 +290,7 @@ void xu_ewmh_net_client_list(Screen_ctx* sc)
 	i++;
 	if (i == 0) return;
 
-	winlist = (Window*)xreallocarray(nullptr, i, sizeof(*winlist));
+	winlist = (Window*)reallocarray(nullptr, i, sizeof(*winlist));
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	winlist[j++] = cc->win;
 	XChangeProperty(X_Dpy,
@@ -315,7 +315,7 @@ void xu_ewmh_net_client_list_stacking(Screen_ctx* sc)
 	if (i == 0) return;
 
 	j = i;
-	winlist = (Window*)xreallocarray(nullptr, i, sizeof(*winlist));
+	winlist = (Window*)reallocarray(nullptr, i, sizeof(*winlist));
 	TAILQ_FOREACH(cc, &sc->clientq, entry)
 	winlist[--j] = cc->win;
 	XChangeProperty(X_Dpy,
@@ -421,7 +421,7 @@ void xu_ewmh_net_desktop_names(Screen_ctx* sc)
 		{
 			if (gc->num == n) {
 				free(gc->name);
-				gc->name = xstrdup(p);
+				gc->name = strdup(p);
 				p += strlen(p) + 1;
 				break;
 			}
@@ -432,7 +432,7 @@ void xu_ewmh_net_desktop_names(Screen_ctx* sc)
 
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
 	len += strlen(gc->name) + 1;
-	q = p = (char*)xreallocarray(nullptr, len, sizeof(*p));
+	q = p = (char*)reallocarray(nullptr, len, sizeof(*p));
 
 	tlen = len;
 	TAILQ_FOREACH(gc, &sc->groupq, entry)
@@ -489,7 +489,7 @@ Atom* xu_ewmh_get_net_wm_state(Client_ctx* cc, int* n)
 	if ((*n = xu_get_prop(cc->win, ewmh[_NET_WM_STATE], XA_ATOM, 64L, (unsigned char**)&p)) <= 0)
 		return nullptr;
 
-	state = (Atom*)xreallocarray(nullptr, *n, sizeof(Atom));
+	state = (Atom*)reallocarray(nullptr, *n, sizeof(Atom));
 	(void)memcpy(state, p, *n * sizeof(Atom));
 	XFree((char*)p);
 
@@ -554,7 +554,7 @@ void xu_ewmh_set_net_wm_state(Client_ctx* cc)
 	int n, i, j;
 
 	oatoms = xu_ewmh_get_net_wm_state(cc, &n);
-	atoms = (Atom*)xreallocarray(nullptr, (n + _NET_WM_STATES_NITEMS), sizeof(Atom));
+	atoms = (Atom*)reallocarray(nullptr, (n + _NET_WM_STATES_NITEMS), sizeof(Atom));
 	for (i = j = 0; i < n; i++) {
 		if (oatoms[i] != ewmh[_NET_WM_STATE_STICKY]
 		    && oatoms[i] != ewmh[_NET_WM_STATE_MAXIMIZED_VERT]

@@ -228,7 +228,7 @@ Conf::~Conf()
 	Autogroup* ag;
 	Bind_ctx *kb, *mb;
 	Winname* wn;
-	Cmd_ctx *cmd;
+	Cmd_ctx* cmd;
 
 	while ((cmd = TAILQ_FIRST(&cmdq)) != nullptr) {
 		TAILQ_REMOVE(&cmdq, cmd, entry);
@@ -261,9 +261,9 @@ void Conf::cmd_add(char const* name, char const* path)
 {
 	Cmd_ctx *cmd, *cmdtmp = nullptr, *cmdnxt;
 
-	cmd = static_cast<Cmd_ctx*>(xmalloc(sizeof(*cmd)));
-	cmd->name = xstrdup(name);
-	cmd->path = xstrdup(path);
+	cmd = static_cast<Cmd_ctx*>(std::malloc(sizeof(*cmd)));
+	cmd->name = strdup(name);
+	cmd->path = strdup(path);
 
 	TAILQ_FOREACH_SAFE(cmdtmp, &cmdq, entry, cmdnxt)
 	{
@@ -281,11 +281,11 @@ void Conf::wm_add(char const* name, char const* path)
 {
 	Cmd_ctx *wm, *wmtmp = nullptr, *wmnxt;
 
-	wm = static_cast<Cmd_ctx*>(xmalloc(sizeof(*wm)));
-	wm->name = xstrdup(name);
-	wm->path = xstrdup(path);
+	wm = static_cast<Cmd_ctx*>(std::malloc(sizeof(*wm)));
+	wm->name = strdup(name);
+	wm->path = strdup(path);
 
-	TAILQ_FOREACH_SAFE(wmtmp, &cmdq, entry, wmnxt)
+	TAILQ_FOREACH_SAFE(wmtmp, &cmdq, entry, wmnxt) // [FIXME] cmdq, really_
 	{
 		if (strcmp(wmtmp->name, name) == 0) {
 			wmq.remove(wmtmp);
@@ -302,22 +302,22 @@ void Conf::autogroup(int num, char const* name, char const* wclass)
 	Autogroup* ag;
 	char* p;
 
-	ag = static_cast<Autogroup*>(xmalloc(sizeof(*ag)));
+	ag = static_cast<Autogroup*>(std::malloc(sizeof(*ag)));
 	if ((p = const_cast<char*>(strchr(wclass, ','))) == nullptr) {
 		if (name == nullptr)
 			ag->name = nullptr;
 		else
-			ag->name = xstrdup(name);
+			ag->name = strdup(name);
 
-		ag->wclass = xstrdup(wclass);
+		ag->wclass = strdup(wclass);
 	} else {
 		*(p++) = '\0';
 		if (name == nullptr)
-			ag->name = xstrdup(wclass);
+			ag->name = strdup(wclass);
 		else
-			ag->name = xstrdup(name);
+			ag->name = strdup(name);
 
-		ag->wclass = xstrdup(p);
+		ag->wclass = strdup(p);
 	}
 	ag->num = num;
 	TAILQ_INSERT_TAIL(&autogroupq, ag, entry);
@@ -327,8 +327,8 @@ void Conf::ignore(char const* name)
 {
 	Winname* wn;
 
-	wn = (Winname*)xmalloc(sizeof(*wn));
-	wn->name = xstrdup(name);
+	wn = (Winname*)std::malloc(sizeof(*wn));
+	wn->name = strdup(name);
 	TAILQ_INSERT_TAIL(&ignoreq, wn, entry);
 }
 
@@ -420,7 +420,7 @@ int Conf::bind_key(char const* bind, char const* cmd)
 		unbind_key(nullptr);
 		return 1;
 	}
-	kb = (Bind_ctx*)xmalloc(sizeof(*kb));
+	kb = (Bind_ctx*)std::malloc(sizeof(*kb));
 	key = conf_bind_mask(bind, &kb->modmask);
 	kb->press.keysym = XStringToKeysym(key);
 	if (kb->press.keysym == NoSymbol) {
@@ -433,7 +433,7 @@ int Conf::bind_key(char const* bind, char const* cmd)
 		free(kb);
 		return 1;
 	}
-	cargs = (Cargs*)xcalloc(1, sizeof(*cargs));
+	cargs = (Cargs*)calloc(1, sizeof(*cargs));
 	for (i = 0; i < nitems(name_to_func); i++) {
 		if (strcmp(name_to_func[i].tag, cmd) != 0) continue;
 		kb->callback = name_to_func[i].handler;
@@ -444,7 +444,7 @@ int Conf::bind_key(char const* bind, char const* cmd)
 	kb->callback = kbfunc_exec_cmd;
 	kb->context = Context::none;
 	cargs->flag = 0;
-	cargs->cmd = xstrdup(cmd);
+	cargs->cmd = strdup(cmd);
 out:
 	kb->cargs = cargs;
 	TAILQ_INSERT_TAIL(&keybindq, kb, entry);
@@ -478,7 +478,7 @@ int Conf::bind_mouse(char const* bind, char const* cmd)
 		this->unbind_mouse(nullptr);
 		return 1;
 	}
-	mb = (Bind_ctx*)xmalloc(sizeof(*mb));
+	mb = (Bind_ctx*)std::malloc(sizeof(*mb));
 	button = conf_bind_mask(bind, &mb->modmask);
 	mb->press.button = strtonum(button, Button1, Button5, &errstr);
 	if (errstr) {
@@ -491,7 +491,7 @@ int Conf::bind_mouse(char const* bind, char const* cmd)
 		free(mb);
 		return 1;
 	}
-	cargs = (Cargs*)xcalloc(1, sizeof(*cargs));
+	cargs = (Cargs*)calloc(1, sizeof(*cargs));
 	for (i = 0; i < nitems(name_to_func); i++) {
 		if (strcmp(name_to_func[i].tag, cmd) != 0) continue;
 		mb->callback = name_to_func[i].handler;
@@ -502,7 +502,7 @@ int Conf::bind_mouse(char const* bind, char const* cmd)
 	mb->callback = kbfunc_exec_cmd;
 	mb->context = Context::none;
 	cargs->flag = 0;
-	cargs->cmd = xstrdup(cmd);
+	cargs->cmd = strdup(cmd);
 out:
 	mb->cargs = cargs;
 	TAILQ_INSERT_TAIL(&mousebindq, mb, entry);

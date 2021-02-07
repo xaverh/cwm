@@ -81,10 +81,10 @@ void search_match_client(struct menu_q* menuq, struct menu_q* resultq, char* sea
 		if (tier < 0) continue;
 
 		/* Current window is ranked down. */
-		if ((tier < tierp.size() - 1) && (cc->flags & Client_ctx::active)) tier++;
+		if ((tier < tierp.size() - 1) && (cc->flags & Client_ctx::active)) ++tier;
 
 		/* Hidden window is ranked up. */
-		if ((tier > 0) && (cc->flags & Client_ctx::hidden)) tier--;
+		if ((tier > 0) && (cc->flags & Client_ctx::hidden)) --tier;
 
 		/*
 		 * If you have a tierp, insert after it, and make it
@@ -128,7 +128,7 @@ void search_match_group(struct menu_q* menuq, struct menu_q* resultq, char* sear
 	TAILQ_FOREACH(mi, menuq, entry)
 	{
 		gc = (Group_ctx*)mi->ctx;
-		xasprintf(&s, "%d %s", gc->num, gc->name);
+		asprintf(&s, "%d %s", gc->num, gc->name);
 		if (match_substr(search, s)) TAILQ_INSERT_TAIL(resultq, mi, resultentry);
 		free(s);
 	}
@@ -139,13 +139,12 @@ static void match_path_type(struct menu_q* resultq, char* search, int flag)
 	Menu* mi;
 	char* pattern;
 	glob_t g;
-	int i;
 
-	xasprintf(&pattern, "%s*", search);
+	asprintf(&pattern, "%s*", search);
 	if (glob(pattern, GLOB_MARK, nullptr, &g) != 0) return;
-	for (i = 0; i < g.gl_pathc; i++) {
+	for (decltype(g.gl_pathc) i {0}; i < g.gl_pathc; ++i) {
 		if ((flag & PATH_EXEC) && access(g.gl_pathv[i], X_OK)) continue;
-		mi = (Menu*)xcalloc(1, sizeof(*mi));
+		mi = (Menu*)calloc(1, sizeof(*mi));
 		(void)strlcpy(mi->text, g.gl_pathv[i], sizeof(mi->text));
 		TAILQ_INSERT_TAIL(resultq, mi, resultentry);
 	}
@@ -208,7 +207,7 @@ void search_match_wm(struct menu_q* menuq, struct menu_q* resultq, char* search)
 
 void search_print_client(Menu* mi, int listing)
 {
-	Client_ctx* cc = (Client_ctx*)mi->ctx;
+	auto cc = (Client_ctx*)mi->ctx;
 	char flag = ' ';
 
 	if (cc->flags & Client_ctx::active)

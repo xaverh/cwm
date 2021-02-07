@@ -564,7 +564,7 @@ void kbfunc_menu_wm(void* ctx, Cargs* cargs)
 	    != nullptr) {
 		auto wm = (Cmd_ctx*)mi->ctx;
 		std::free(conf->wm_argv);
-		conf->wm_argv = xstrdup(wm->path);
+		conf->wm_argv = strdup(wm->path);
 		cwm_status = Cwm_status::CWM_EXEC_WM;
 	}
 
@@ -588,7 +588,7 @@ void kbfunc_menu_exec(void* ctx, [[maybe_unused]] Cargs* cargs)
 	TAILQ_INIT(&menuq);
 
 	if ((path = getenv("PATH")) == nullptr) path = const_cast<char*>(_PATH_DEFPATH);
-	pathcpy = path = xstrdup(path);
+	pathcpy = path = strdup(path);
 
 	for (ap = paths; ap < &paths[NPATHS - 1] && (*ap = strsep(&pathcpy, ":")) != nullptr;) {
 		if (**ap != '\0') ap++;
@@ -706,7 +706,7 @@ void kbfunc_client_menu_label(void* ctx, [[maybe_unused]] Cargs* cargs)
 	                 search_match_text,
 	                 search_print_text);
 
-	if (!mi->abort) { cc->label = xstrdup(mi->text); }
+	if (!mi->abort) { cc->label = strdup(mi->text); }
 	free(mi);
 }
 
@@ -718,7 +718,6 @@ void kbfunc_exec_cmd([[maybe_unused]] void* ctx, Cargs* cargs)
 void kbfunc_exec_term([[maybe_unused]] void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	Cmd_ctx* cmd;
-
 	TAILQ_FOREACH(cmd, &conf->cmdq, entry)
 	{
 		if (strcmp(cmd->name, "term") == 0) u_spawn(cmd->path);
@@ -728,7 +727,6 @@ void kbfunc_exec_term([[maybe_unused]] void* ctx, [[maybe_unused]] Cargs* cargs)
 void kbfunc_exec_lock([[maybe_unused]] void* ctx, [[maybe_unused]] Cargs* cargs)
 {
 	Cmd_ctx* cmd;
-
 	TAILQ_FOREACH(cmd, &conf->cmdq, entry)
 	{
 		if (strcmp(cmd->name, "lock") == 0) u_spawn(cmd->path);

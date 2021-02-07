@@ -56,7 +56,7 @@ Client_ctx* client_init(Window win, Screen_ctx* sc)
 
 	XGrabServer(X_Dpy);
 
-	cc = (Client_ctx*)xmalloc(sizeof(*cc));
+	cc = (Client_ctx*)std::malloc(sizeof(*cc));
 	cc->sc = sc;
 	cc->win = win;
 	cc->name = nullptr;
@@ -533,11 +533,11 @@ static void client_class_hint(Client_ctx* cc)
 
 	if (XGetClassHint(X_Dpy, cc->win, &ch)) {
 		if (ch.res_class) {
-			cc->res_class = xstrdup(ch.res_class);
+			cc->res_class = strdup(ch.res_class);
 			XFree(ch.res_class);
 		}
 		if (ch.res_name) {
-			cc->res_name = xstrdup(ch.res_name);
+			cc->res_name = strdup(ch.res_name);
 			XFree(ch.res_name);
 		}
 	}
@@ -586,7 +586,7 @@ void client_set_name(Client_ctx* cc)
 
 	free(cc->name);
 	if (!xu_get_strprop(cc->win, ewmh[_NET_WM_NAME], &cc->name))
-		if (!xu_get_strprop(cc->win, XA_WM_NAME, &cc->name)) cc->name = xstrdup("");
+		if (!xu_get_strprop(cc->win, XA_WM_NAME, &cc->name)) cc->name = strdup("");
 
 	TAILQ_FOREACH_SAFE(wn, &cc->nameq, entry, wnnxt)
 	{
@@ -597,8 +597,8 @@ void client_set_name(Client_ctx* cc)
 		}
 		i++;
 	}
-	wn = (Winname*)xmalloc(sizeof(*wn));
-	wn->name = xstrdup(cc->name);
+	wn = (Winname*)std::malloc(sizeof(*wn));
+	wn->name = strdup(cc->name);
 	TAILQ_INSERT_TAIL(&cc->nameq, wn, entry);
 
 	/* Garbage collection. */

@@ -39,7 +39,7 @@ void screen_init(int which)
 	Screen_ctx* sc;
 	XSetWindowAttributes attr;
 
-	sc = (Screen_ctx*)xmalloc(sizeof(*sc));
+	sc = (Screen_ctx*)std::malloc(sizeof(*sc));
 
 	TAILQ_INIT(&sc->clientq);
 	TAILQ_INIT(&sc->regionq);
@@ -188,7 +188,7 @@ void screen_update_geometry(Screen_ctx* sc)
 				continue;
 			}
 
-			rc = (Region_ctx*)xmalloc(sizeof(*rc));
+			rc = (Region_ctx*)std::malloc(sizeof(*rc));
 			rc->num = i;
 			rc->view.x = ci->x;
 			rc->view.y = ci->y;
@@ -201,7 +201,7 @@ void screen_update_geometry(Screen_ctx* sc)
 		}
 		XRRFreeScreenResources(sr);
 	} else {
-		rc = (Region_ctx*)xmalloc(sizeof(*rc));
+		rc = (Region_ctx*)std::malloc(sizeof(*rc));
 		rc->num = 0;
 		rc->view.x = 0;
 		rc->view.y = 0;
@@ -276,7 +276,7 @@ void screen_prop_win_draw(Screen_ctx* sc, char const* fmt, ...)
 	XGlyphInfo extents;
 
 	va_start(ap, fmt);
-	xvasprintf(&text, fmt, ap);
+	vasprintf(&text, fmt, ap);
 	va_end(ap);
 
 	XftTextExtentsUtf8(X_Dpy, sc->xftfont, (const FcChar8*)text, strlen(text), &extents);

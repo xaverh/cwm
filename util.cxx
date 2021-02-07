@@ -85,7 +85,7 @@ char* u_argv(char* const* argv)
 	for (i = 0; argv[i]; i++) siz += strlen(argv[i]) + 1;
 	if (siz == 0) return nullptr;
 
-	p = (char*)xmalloc(siz);
+	p = (char*)std::malloc(siz);
 	strlcpy(p, argv[0], siz);
 	for (i = 1; argv[i]; i++) {
 		strlcat(p, " ", siz);
@@ -116,7 +116,7 @@ void log_debug(int level, char const* func, char const* msg, ...)
 	if (conf->debug < level) return;
 
 	va_start(ap, msg);
-	xasprintf(&fmt, "debug%d: %s: %s", level, func, msg);
+	asprintf(&fmt, "debug%d: %s: %s", level, func, msg);
 	log_msg(fmt, ap);
 	free(fmt);
 	va_end(ap);
